@@ -28,13 +28,22 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
     setPosition({ x: 0, y: 0 });
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleDoubleTap = () => {
+    if (scale > 1) {
+      handleReset();
+    } else {
+      setScale(2);
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (scale <= 1) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging) return;
     setPosition({
       x: e.clientX - dragStartRef.current.x,
@@ -42,17 +51,22 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
     });
   };
 
-  const handleMouseUp = () => setIsDragging(false);
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isDragging) {
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      setIsDragging(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-neutral-800 p-3 sm:p-4">
       {/* Canvas Top Bar */}
-      <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold text-white truncate max-w-xs">{file.name}</span>
+          <span className="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{file.name}</span>
           {file.isDirty ? (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-              MODIFIED IN MEMORY
+              MODIFIED
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-800 text-neutral-400 border border-neutral-700 shrink-0">
@@ -62,49 +76,50 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         </div>
 
         {/* Zoom & Download Toolbar */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
           <button
             onClick={handleZoomOut}
             title="Zoom Out"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <span className="text-[11px] font-mono text-neutral-400 w-10 text-center">
+          <span className="text-[11px] font-mono text-neutral-400 w-9 text-center select-none">
             {Math.round(scale * 100)}%
           </span>
           <button
             onClick={handleZoomIn}
             title="Zoom In"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleReset}
             title="Reset Zoom & Pan"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 ml-1"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={() => exportSingle(file.id)}
-            className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+            className="ml-1 sm:ml-2 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition active:scale-95 shadow-xs"
           >
             <Download className="w-3.5 h-3.5 text-blue-400" />
-            Download
+            <span className="hidden sm:inline">Download</span>
           </button>
         </div>
       </div>
 
-      {/* Interactive Pan/Zoom Canvas */}
+      {/* Interactive Pan/Zoom Canvas with Touch/Pointer support */}
       <div
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        className={`relative w-full h-[360px] sm:h-[420px] rounded-xl overflow-hidden bg-black/80 flex items-center justify-center select-none ${
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onDoubleClick={handleDoubleTap}
+        className={`relative w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-xl overflow-hidden bg-black/80 flex items-center justify-center select-none touch-none ${
           scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
         }`}
         style={{
@@ -129,12 +144,12 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <img
             src={file.thumbnailUrl}
             alt={file.name}
-            className="max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
+            className="max-h-[250px] sm:max-h-[350px] md:max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
           />
         </div>
 
         {/* Dimension & Format Overlay Badge */}
-        <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-xs border border-neutral-800 text-[10px] font-mono text-neutral-300">
+        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-xs border border-neutral-800 text-[10px] font-mono text-neutral-300">
           <span>{file.type.replace('image/', '').toUpperCase()}</span>
           <span>•</span>
           <span>{file.width && file.height ? `${file.width}×${file.height} px` : 'N/A'}</span>
