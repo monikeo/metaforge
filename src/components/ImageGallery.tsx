@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
   MapPin, 
@@ -9,8 +9,13 @@ import {
   Search, 
   Image as ImageIcon,
   Check,
-  ShieldAlert
+  ShieldAlert, 
+  Filter, 
+  CheckSquare, 
+  Square, 
+  Layers 
 } from 'lucide-react';
+import BatchActionsModal from './Batch/BatchActionsModal';
 
 export default function ImageGallery() {
   const { 
@@ -20,41 +25,162 @@ export default function ImageGallery() {
     removeFile, 
     clearFiles,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    selectedFileIds,
+    toggleSelectFile,
+    selectAllFiles,
+    clearSelection,
+    filterOptions,
+    setFilterOptions
   } = useMetaForgeStore();
 
-  const filteredFiles = files.filter((f) =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Apply filters
+  const filteredFiles = files.filter((f) => {
+    // Search
+    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (f.seoData?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    if (!matchesSearch) return false;
+
+    // Format
+    if (filterOptions.format !== 'ALL') {
+      const ext = f.name.split('.').pop()?.toUpperCase();
+      if (ext !== filterOptions.format) return false;
+    }
+
+    // Privacy
+    if (filterOptions.privacyStatus === 'GPS_PRESENT' && !f.privacyReport.hasGps) return false;
+    if (filterOptions.privacyStatus === 'CLEAN' && f.privacyReport.hasGps) return false;
+
+    // SEO
+    if (filterOptions.seoStatus === 'SEO_READY' && (!f.seoData?.title || !f.seoData?.altText)) return false;
+    if (filterOptions.seoStatus === 'NEEDS_SEO' && f.seoData?.title && f.seoData?.altText) return false;
+
+    return true;
+  });
+
+  const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Search & Counter Header */}
+      {/* Search & Bulk Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300">
           <ImageIcon className="w-3.5 h-3.5 text-neutral-400" />
-          <span>Image Queue</span>
-          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 text-neutral-400 font-mono">
-            {files.length}
-          </span>
+          <span>Queue ({files.length})</span>
+          {selectedFileIds.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">
+              {selectedFileIds.length} selected
+            </span>
+          )}
         </div>
 
-        {files.length > 0 && (
+        <div className="flex items-center gap-1">
+          {files.length > 0 && (
+            <button
+              onClick={() => (isAllSelected ? clearSelection() : selectAllFiles())}
+              className="text-[11px] text-neutral-400 hover:text-white px-1.5 py-0.5 rounded transition flex items-center gap-1"
+              title="Toggle Select All"
+            >
+              {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-purple-400" /> : <Square className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{isAllSelected ? 'Deselect' : 'Select All'}</span>
+            </button>
+          )}
+
           <button
-            onClick={clearFiles}
-            className="text-[11px] text-neutral-500 hover:text-rose-400 transition"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-1 rounded-lg transition ${
+              showFilters ? 'bg-neutral-800 text-purple-400' : 'text-neutral-500 hover:text-white'
+            }`}
+            title="Toggle Filter Panel"
           >
-            Clear All
+            <Filter className="w-3.5 h-3.5" />
           </button>
-        )}
+
+          {files.length > 0 && (
+            <button
+              onClick={clearFiles}
+              className="text-[11px] text-neutral-500 hover:text-rose-400 transition ml-1"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Batch Operations Bar */}
+      {selectedFileIds.length > 0 && (
+        <div className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between gap-2 animate-in fade-in duration-150">
+          <span className="text-xs font-semibold text-purple-200">
+            {selectedFileIds.length} file(s) selected
+          </span>
+          <button
+            onClick={() => setIsBatchModalOpen(true)}
+            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition flex items-center gap-1 shadow-sm"
+          >
+            <Layers className="w-3 h-3" />
+            Batch Edit / Rename
+          </button>
+        </div>
+      )}
+
+      {/* Filter Drawer */}
+      {showFilters && (
+        <div className="p-2.5 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col gap-2 text-[11px] animate-in slide-in-from-top-2 duration-150">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <span className="text-neutral-500 block mb-0.5">Format</span>
+              <select
+                value={filterOptions.format}
+                onChange={(e) => setFilterOptions({ format: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+              >
+                <option value="ALL">All</option>
+                <option value="JPG">JPG</option>
+                <option value="JPEG">JPEG</option>
+                <option value="PNG">PNG</option>
+                <option value="WEBP">WEBP</option>
+              </select>
+            </div>
+
+            <div>
+              <span className="text-neutral-500 block mb-0.5">Privacy</span>
+              <select
+                value={filterOptions.privacyStatus}
+                onChange={(e) => setFilterOptions({ privacyStatus: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+              >
+                <option value="ALL">All</option>
+                <option value="GPS_PRESENT">GPS Present</option>
+                <option value="CLEAN">Clean</option>
+              </select>
+            </div>
+
+            <div>
+              <span className="text-neutral-500 block mb-0.5">SEO Status</span>
+              <select
+                value={filterOptions.seoStatus}
+                onChange={(e) => setFilterOptions({ seoStatus: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+              >
+                <option value="ALL">All</option>
+                <option value="SEO_READY">SEO Ready</option>
+                <option value="NEEDS_SEO">Needs SEO</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Input */}
       {files.length > 1 && (
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
           <input
             type="text"
-            placeholder="Search filenames..."
+            placeholder="Search filenames / titles..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
@@ -63,9 +189,10 @@ export default function ImageGallery() {
       )}
 
       {/* Thumbnails Scroll List */}
-      <div className="flex flex-col gap-2 max-h-[calc(100vh-380px)] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2 max-h-[calc(100vh-420px)] overflow-y-auto pr-1">
         {filteredFiles.map((file) => {
           const isActive = file.id === activeFileId;
+          const isSelected = selectedFileIds.includes(file.id);
           const hasGps = file.privacyReport.hasGps;
           const isAi = file.aiWorkflow.detected;
           const hasSeo = Boolean(file.seoData?.title && file.seoData?.altText);
@@ -74,14 +201,30 @@ export default function ImageGallery() {
             <div
               key={file.id}
               onClick={() => setActiveFile(file.id)}
-              className={`group relative flex items-center gap-3 p-2.5 rounded-xl border transition cursor-pointer select-none ${
+              className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition cursor-pointer select-none ${
                 isActive
                   ? 'bg-neutral-800/90 border-purple-500 shadow-md shadow-purple-950/20'
                   : 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
               }`}
             >
+              {/* Checkbox */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSelectFile(file.id);
+                }}
+                className="text-neutral-500 hover:text-white p-0.5"
+              >
+                {isSelected ? (
+                  <CheckSquare className="w-4 h-4 text-purple-400" />
+                ) : (
+                  <Square className="w-4 h-4 opacity-40 group-hover:opacity-100" />
+                )}
+              </button>
+
               {/* Thumbnail */}
-              <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-neutral-950 border border-neutral-800">
+              <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-neutral-950 border border-neutral-800">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={file.thumbnailUrl}
@@ -89,12 +232,12 @@ export default function ImageGallery() {
                   className="w-full h-full object-cover"
                 />
                 {file.isDirty && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-neutral-950" title="Unsaved in-memory changes" />
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-neutral-950" title="Modified in memory" />
                 )}
               </div>
 
               {/* File Info & Badges */}
-              <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                 <span className={`text-xs font-semibold truncate ${isActive ? 'text-white' : 'text-neutral-300'}`}>
                   {file.name}
                 </span>
@@ -123,12 +266,12 @@ export default function ImageGallery() {
                   )}
                   {hasSeo && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      <Check className="w-2.5 h-2.5" /> SEO Ready
+                      <Check className="w-2.5 h-2.5" /> SEO
                     </span>
                   )}
                   {file.privacyReport.riskLevel === 'HIGH' && !hasGps && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <ShieldAlert className="w-2.5 h-2.5" /> High Risk
+                      <ShieldAlert className="w-2.5 h-2.5" /> Risk
                     </span>
                   )}
                 </div>
@@ -150,6 +293,12 @@ export default function ImageGallery() {
           );
         })}
       </div>
+
+      {/* Batch Actions Modal */}
+      <BatchActionsModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+      />
     </div>
   );
 }

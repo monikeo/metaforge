@@ -326,6 +326,16 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
     seoData,
     privacyReport,
     rawHexSample: hexSample,
-    isDirty: false
+    isDirty: false,
+    history: [
+      {
+        id: `hist-init-${Date.now()}`,
+        timestamp: Date.now(),
+        actor: 'System',
+        action: 'Imported File',
+        diffSummary: 'Initial metadata loaded from file headers'
+      }
+    ],
+    sourceTags: {}
   };
 }

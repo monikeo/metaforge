@@ -7,8 +7,10 @@ import {
   ZoomIn, 
   ZoomOut, 
   RotateCcw, 
-  Download 
+  Download,
+  History 
 } from 'lucide-react';
+import MetadataHistoryModal from '../History/MetadataHistoryModal';
 
 interface ImageCanvasPreviewProps {
   file: MetaFile;
@@ -19,6 +21,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 4));
@@ -103,6 +106,17 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           </button>
 
           <button
+            onClick={() => setIsHistoryOpen(true)}
+            title="Audit History & Snapshots"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition relative"
+          >
+            <History className="w-3.5 h-3.5 text-purple-400" />
+            {file.history && file.history.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-500" />
+            )}
+          </button>
+
+          <button
             onClick={() => exportSingle(file.id)}
             className="ml-1 sm:ml-2 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition active:scale-95 shadow-xs"
           >
@@ -157,6 +171,13 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <span>{(file.size / 1024).toFixed(1)} KB</span>
         </div>
       </div>
+
+      {/* Audit History & Snapshot Rollback Modal */}
+      <MetadataHistoryModal
+        fileId={file.id}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </div>
   );
 }

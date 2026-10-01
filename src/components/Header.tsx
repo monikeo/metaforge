@@ -21,6 +21,7 @@ export default function Header() {
   const pathname = usePathname();
   const { 
     files, 
+    setCurrentView,
     aiEnabled, 
     toggleAI, 
     setIsAiSettingsOpen, 
@@ -64,6 +65,7 @@ export default function Header() {
           <nav className="flex items-center gap-1 ml-2 sm:ml-4 bg-neutral-900/60 p-1 rounded-xl border border-neutral-800">
             <Link
               href="/"
+              onClick={() => setCurrentView('studio')}
               className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition ${
                 pathname === '/'
                   ? 'bg-neutral-800 text-white shadow-xs'
