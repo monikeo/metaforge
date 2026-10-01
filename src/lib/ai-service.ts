@@ -116,9 +116,13 @@ Respond in strict JSON format with this exact JSON schema:
     }
   });
 
-  const responseText = response.text || '{}';
+  let cleanedText = (response.text || '{}').trim();
+  if (cleanedText.startsWith('```')) {
+    cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  }
+
   try {
-    const parsed = JSON.parse(responseText);
+    const parsed = JSON.parse(cleanedText);
     return {
       title: parsed.title || '',
       caption: parsed.caption || '',
@@ -130,7 +134,7 @@ Respond in strict JSON format with this exact JSON schema:
       }
     };
   } catch (err) {
-    console.error('Failed to parse Gemini response as JSON:', responseText, err);
+    console.error('Failed to parse Gemini response as JSON:', cleanedText, err);
     throw new Error('Could not parse AI response. Please try again.');
   }
 }

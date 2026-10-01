@@ -11,7 +11,8 @@ import {
   User, 
   Trash2, 
   Sparkles, 
-  CheckCircle2 
+  CheckCircle2,
+  ExternalLink 
 } from 'lucide-react';
 
 interface PrivacyAuditorProps {
@@ -27,6 +28,9 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
   const report = file.privacyReport;
   const isHighRisk = report.riskLevel === 'HIGH';
   const isClean = report.score === 0;
+
+  const lat = file.rawMetadata?.latitude ?? file.rawMetadata?.gps?.latitude ?? file.rawMetadata?.exif?.latitude;
+  const lon = file.rawMetadata?.longitude ?? file.rawMetadata?.gps?.longitude ?? file.rawMetadata?.exif?.longitude;
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
@@ -131,6 +135,27 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
           <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-emerald-300 text-xs">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>This image is clean of physical coordinates and serial number fingerprints.</span>
+          </div>
+        )}
+
+        {report.hasGps && lat !== undefined && lon !== undefined && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-rose-950/30 border border-rose-500/20 text-xs">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+              <div>
+                <span className="font-bold text-rose-200">Exact GPS Coordinates: </span>
+                <span className="font-mono text-rose-300 font-semibold">{lat.toFixed(6)}, {lon.toFixed(6)}</span>
+              </div>
+            </div>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 hover:underline font-semibold shrink-0"
+            >
+              <span>Preview on Map</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         )}
       </div>

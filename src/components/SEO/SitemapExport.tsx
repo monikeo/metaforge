@@ -53,7 +53,8 @@ export default function SitemapExport() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition flex items-center justify-center gap-1.5"
+        disabled={files.length === 0}
+        className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-200 border border-neutral-700 transition flex items-center justify-center gap-1.5"
       >
         <FileCode className="w-3.5 h-3.5 text-blue-400" />
         Generate Google Image Sitemap XML ({files.length} images)

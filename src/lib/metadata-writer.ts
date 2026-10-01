@@ -22,6 +22,26 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 /**
+ * Ensures all required IFD dictionary blocks exist so piexif.dump never throws.
+ */
+export function ensureExifDicts(exifObj: piexif.IExifElement): piexif.IExifElement {
+  if (!exifObj['0th']) exifObj['0th'] = {};
+  if (!exifObj.Exif) exifObj.Exif = {};
+  if (!exifObj.GPS) exifObj.GPS = {};
+  if (!exifObj.Interop) exifObj.Interop = {};
+  if (!exifObj['1st']) exifObj['1st'] = {};
+  return exifObj;
+}
+
+/**
+ * Sanitizes Unicode/high-byte characters for safe 8-bit IFD byte packing in piexif.
+ */
+export function toSafeExifString(str?: string): string {
+  if (!str) return '';
+  return str.replace(/[^\x00-\xFF]/g, '?');
+}
+
+/**
  * Universal canvas sanitization. Draws image to an offscreen canvas and exports.
  * This mathematically destroys 100% of EXIF, GPS, MakerNotes, XMP, and device chunks.
  */
@@ -89,6 +109,7 @@ export async function stripGpsFromBlob(blob: Blob): Promise<Blob> {
       delete exifObj['0th'][piexif.ImageIFD.GPSTag];
     }
 
+    ensureExifDicts(exifObj);
     const exifBytes = piexif.dump(exifObj);
     const cleanDataUrl = piexif.insert(exifBytes, dataUrl);
     return dataUrlToBlob(cleanDataUrl);
@@ -162,6 +183,7 @@ export async function sanitizeForSocialMedia(blob: Blob, retainCopyright = true)
       delete exifObj.Exif[piexif.ExifIFD.DeviceSettingDescription];
     }
 
+    ensureExifDicts(exifObj);
     const exifBytes = piexif.dump(exifObj);
     const cleanDataUrl = piexif.insert(exifBytes, dataUrl);
     return dataUrlToBlob(cleanDataUrl);
@@ -199,20 +221,19 @@ export async function writeTagsToJpeg(
       exifObj = { '0th': {}, Exif: {}, GPS: {}, Interop: {}, '1st': {}, thumbnail: null };
     }
 
-    if (!exifObj['0th']) exifObj['0th'] = {};
-    if (!exifObj.Exif) exifObj.Exif = {};
+    ensureExifDicts(exifObj);
 
-    if (tags.artist) {
-      exifObj['0th'][piexif.ImageIFD.Artist] = tags.artist;
+    if (tags.artist && exifObj['0th']) {
+      exifObj['0th'][piexif.ImageIFD.Artist] = toSafeExifString(tags.artist);
     }
-    if (tags.copyright) {
-      exifObj['0th'][piexif.ImageIFD.Copyright] = tags.copyright;
+    if (tags.copyright && exifObj['0th']) {
+      exifObj['0th'][piexif.ImageIFD.Copyright] = toSafeExifString(tags.copyright);
     }
-    if (tags.description || tags.title) {
-      exifObj['0th'][piexif.ImageIFD.ImageDescription] = tags.description || tags.title || '';
+    if ((tags.description || tags.title) && exifObj['0th']) {
+      exifObj['0th'][piexif.ImageIFD.ImageDescription] = toSafeExifString(tags.description || tags.title || '');
     }
-    if (tags.userComment) {
-      exifObj.Exif[piexif.ExifIFD.UserComment] = tags.userComment;
+    if (tags.userComment && exifObj.Exif) {
+      exifObj.Exif[piexif.ExifIFD.UserComment] = toSafeExifString(tags.userComment);
     }
 
     const exifBytes = piexif.dump(exifObj);
