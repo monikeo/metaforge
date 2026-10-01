@@ -14,7 +14,8 @@ import {
   Download, 
   Settings2, 
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  FileCode
 } from 'lucide-react';
 
 export default function CommandPalette() {
@@ -27,6 +28,7 @@ export default function CommandPalette() {
     stripAllGps, 
     batchSanitizeForSocial, 
     exportAllZip,
+    exportAllMetadataJson,
     setIsAiSettingsOpen 
   } = useMetaForgeStore();
 
@@ -110,6 +112,13 @@ export default function CommandPalette() {
       category: 'Actions',
       icon: Download,
       action: () => exportAllZip()
+    },
+    {
+      id: 'cmd-export-json',
+      title: 'Export: Download All Metadata as JSON Catalog',
+      category: 'Actions',
+      icon: FileCode,
+      action: () => exportAllMetadataJson()
     },
     {
       id: 'cmd-ai-settings',

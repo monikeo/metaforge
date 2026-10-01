@@ -14,7 +14,8 @@ import {
   Shield,
   Layers,
   Info,
-  BookOpen
+  BookOpen,
+  FileCode
 } from 'lucide-react';
 
 export default function Header() {
@@ -28,6 +29,7 @@ export default function Header() {
     stripAllGps, 
     batchSanitizeForSocial, 
     exportAllZip,
+    exportAllMetadataJson,
     isProcessing,
     processingMessage 
   } = useMetaForgeStore();
@@ -137,6 +139,15 @@ export default function Header() {
               >
                 <Download className="w-3.5 h-3.5 text-blue-400" />
                 Export ZIP ({files.length})
+              </button>
+
+              <button
+                onClick={exportAllMetadataJson}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs"
+                title="Export all image metadata records as a unified JSON catalog"
+              >
+                <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                Export JSON ({files.length})
               </button>
             </div>
           )

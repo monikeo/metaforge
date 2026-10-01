@@ -8,7 +8,11 @@ import {
   ZoomOut, 
   RotateCcw, 
   Download,
-  History 
+  History,
+  Edit2,
+  Check,
+  X,
+  FileCode 
 } from 'lucide-react';
 import MetadataHistoryModal from '../History/MetadataHistoryModal';
 
@@ -17,12 +21,28 @@ interface ImageCanvasPreviewProps {
 }
 
 export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
-  const { exportSingle } = useMetaForgeStore();
+  const { exportSingle, exportMetadataJson, renameFile } = useMetaForgeStore();
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(file.name);
   const dragStartRef = useRef({ x: 0, y: 0 });
+
+  const [prevFileId, setPrevFileId] = useState(file.id);
+  if (file.id !== prevFileId) {
+    setPrevFileId(file.id);
+    setNameInput(file.name);
+    setIsEditingName(false);
+  }
+
+  const handleSaveName = () => {
+    if (nameInput.trim() && nameInput.trim() !== file.name) {
+      renameFile(file.id, nameInput.trim());
+    }
+    setIsEditingName(false);
+  };
 
   const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 4));
   const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
@@ -66,7 +86,59 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
       {/* Canvas Top Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{file.name}</span>
+          {isEditingName ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') {
+                    setNameInput(file.name);
+                    setIsEditingName(false);
+                  }
+                }}
+                autoFocus
+                className="px-2 py-0.5 bg-neutral-950 border border-purple-500 rounded-lg text-xs font-bold text-white focus:outline-none w-44 sm:w-56 font-mono"
+              />
+              <button
+                onClick={handleSaveName}
+                className="p-1 rounded bg-purple-600 hover:bg-purple-500 text-white"
+                title="Save filename"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  setNameInput(file.name);
+                  setIsEditingName(false);
+                }}
+                className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+                title="Cancel"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                onClick={() => setIsEditingName(true)}
+                title="Click to rename file"
+                className="text-xs font-bold text-white truncate max-w-[140px] sm:max-w-xs cursor-pointer hover:text-purple-300 transition"
+              >
+                {file.name}
+              </span>
+              <button
+                onClick={() => setIsEditingName(true)}
+                title="Rename file"
+                className="p-0.5 rounded text-neutral-500 hover:text-white"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
           {file.isDirty ? (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
               MODIFIED
@@ -114,6 +186,14 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
             {file.history && file.history.length > 0 && (
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-500" />
             )}
+          </button>
+
+          <button
+            onClick={() => exportMetadataJson(file.id)}
+            title="Export Metadata as JSON (.json)"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 active:scale-95 transition"
+          >
+            <FileCode className="w-3.5 h-3.5" />
           </button>
 
           <button

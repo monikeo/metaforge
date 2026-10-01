@@ -6,15 +6,34 @@ import { UploadCloud, ShieldCheck, Sparkles, MapPin } from 'lucide-react';
 import { createSampleExifJpeg, createSampleAiPng } from '@/lib/sample-data';
 
 export default function Dropzone() {
-  const { addFiles, isProcessing } = useMetaForgeStore();
+  const { addFiles, addToast, isProcessing } = useMetaForgeStore();
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (fileList: FileList | null) => {
     if (!fileList || !fileList.length) return;
-    const arrayFiles = Array.from(fileList).filter((f) => f.type.startsWith('image/') || f.name.match(/\.(jpe?g|png|webp|avif|tiff?|heic)$/i));
-    if (arrayFiles.length) {
-      await addFiles(arrayFiles);
+    const allFiles = Array.from(fileList);
+    const validFiles = allFiles.filter(
+      (f) => f.type.startsWith('image/') || f.name.match(/\.(jpe?g|png|webp|avif|tiff?|heic)$/i)
+    );
+    const skippedCount = allFiles.length - validFiles.length;
+
+    if (skippedCount > 0) {
+      addToast({
+        type: 'warning',
+        title: 'Non-Image Files Skipped',
+        description: `${skippedCount} file(s) ignored. MetaForge supports JPEG, PNG, WebP, AVIF, TIFF.`
+      });
+    }
+
+    if (validFiles.length) {
+      await addFiles(validFiles);
+    } else if (allFiles.length > 0) {
+      addToast({
+        type: 'error',
+        title: 'No Supported Images',
+        description: 'Please upload image files (JPEG, PNG, WebP, AVIF, TIFF).'
+      });
     }
   };
 

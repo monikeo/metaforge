@@ -164,9 +164,13 @@ interface MetaForgeState {
   // History
   restoreHistory: (fileId: string, historyId: string) => Promise<void>;
 
+  renameFile: (fileId: string, newName: string) => void;
+
   // Export
   exportSingle: (fileId: string) => void;
   exportAllZip: () => Promise<void>;
+  exportMetadataJson: (fileId: string) => void;
+  exportAllMetadataJson: () => void;
 }
 
 export const useMetaForgeStore = create<MetaForgeState>()(
@@ -251,38 +255,62 @@ export const useMetaForgeStore = create<MetaForgeState>()(
 
         try {
           const parsedFiles: MetaFile[] = [];
+          const failedFiles: string[] = [];
+
           for (const file of newFiles) {
-            const meta = await parseDeepMetadata(file);
-            parsedFiles.push(meta);
+            try {
+              const meta = await parseDeepMetadata(file);
+              parsedFiles.push(meta);
+            } catch (fileErr) {
+              console.warn(`Could not parse ${file.name}:`, fileErr);
+              failedFiles.push(file.name);
+            }
           }
 
-          set((state) => {
-            const combined = [...state.files, ...parsedFiles];
-            const activeId = state.activeFileId || parsedFiles[0]?.id || null;
-            const compareA = state.compareFileIds[0] || combined[0]?.id || null;
-            const compareB = state.compareFileIds[1] || combined[1]?.id || null;
+          if (parsedFiles.length > 0) {
+            set((state) => {
+              const combined = [...state.files, ...parsedFiles];
+              const activeId = state.activeFileId || parsedFiles[0]?.id || null;
+              const compareA = state.compareFileIds[0] || combined[0]?.id || null;
+              const compareB = state.compareFileIds[1] || combined[1]?.id || null;
 
-            return {
-              files: combined,
-              activeFileId: activeId,
-              compareFileIds: [compareA, compareB],
-              isProcessing: false,
-              processingMessage: ''
-            };
-          });
+              return {
+                files: combined,
+                activeFileId: activeId,
+                compareFileIds: [compareA, compareB],
+                isProcessing: false,
+                processingMessage: ''
+              };
+            });
 
-          get().addToast({
-            type: 'success',
-            title: 'Files Imported',
-            description: `Successfully loaded ${newFiles.length} image(s) in-memory.`
-          });
+            if (failedFiles.length === 0) {
+              get().addToast({
+                type: 'success',
+                title: 'Files Imported',
+                description: `Successfully loaded ${parsedFiles.length} image(s) in-memory.`
+              });
+            } else {
+              get().addToast({
+                type: 'warning',
+                title: 'Partial Import Complete',
+                description: `Imported ${parsedFiles.length} file(s). Skipped ${failedFiles.length} unreadable file(s).`
+              });
+            }
+          } else {
+            set({ isProcessing: false, processingMessage: '' });
+            get().addToast({
+              type: 'error',
+              title: 'Import Failed',
+              description: 'Could not parse headers. Image files may be corrupt.'
+            });
+          }
         } catch (err) {
           console.error('Error adding files:', err);
           set({ isProcessing: false, processingMessage: '' });
           get().addToast({
             type: 'error',
             title: 'Import Failed',
-            description: 'Could not parse selected files.'
+            description: 'Unexpected error occurred during file parsing.'
           });
         }
       },
@@ -1075,6 +1103,89 @@ export const useMetaForgeStore = create<MetaForgeState>()(
           console.error('Failed exporting zip', err);
           set({ isProcessing: false, processingMessage: '' });
         }
+      },
+
+      renameFile: (fileId: string, newName: string) => {
+        if (!newName.trim()) return;
+        set((state) => ({
+          files: state.files.map((f) =>
+            f.id === fileId ? { ...f, name: newName.trim(), isDirty: true } : f
+          )
+        }));
+        get().addToast({
+          type: 'success',
+          title: 'File Renamed',
+          description: `Renamed to ${newName.trim()}.`
+        });
+      },
+
+      exportMetadataJson: (fileId: string) => {
+        const file = get().files.find((f) => f.id === fileId);
+        if (!file) return;
+
+        const payload = {
+          file: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            width: file.width,
+            height: file.height,
+            lastModified: file.lastModified
+          },
+          privacyReport: {
+            score: file.privacyReport.score,
+            riskLevel: file.privacyReport.riskLevel,
+            hasGps: file.privacyReport.hasGps,
+            issues: file.privacyReport.issues
+          },
+          seoMetadata: file.seoData,
+          aiWorkflow: file.aiWorkflow,
+          exif: file.rawMetadata?.exif || {},
+          iptc: file.rawMetadata?.iptc || {},
+          xmp: file.rawMetadata?.xmp || {},
+          gps: file.rawMetadata?.gps || {},
+          history: file.history
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        saveAs(blob, `${file.name.replace(/\.[^/.]+$/, '')}_metadata.json`);
+
+        get().addToast({
+          type: 'success',
+          title: 'JSON Exported',
+          description: `Saved metadata dictionary for ${file.name}.`
+        });
+      },
+
+      exportAllMetadataJson: () => {
+        const { files } = get();
+        if (!files.length) return;
+
+        const allPayload = files.map((file) => ({
+          file: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            width: file.width,
+            height: file.height
+          },
+          privacyThreatScore: file.privacyReport.score,
+          privacyRiskLevel: file.privacyReport.riskLevel,
+          seoData: file.seoData,
+          aiWorkflow: file.aiWorkflow.detected ? file.aiWorkflow : undefined,
+          exif: file.rawMetadata?.exif,
+          iptc: file.rawMetadata?.iptc,
+          xmp: file.rawMetadata?.xmp
+        }));
+
+        const blob = new Blob([JSON.stringify(allPayload, null, 2)], { type: 'application/json' });
+        saveAs(blob, `metaforge_catalog_${new Date().toISOString().slice(0, 10)}.json`);
+
+        get().addToast({
+          type: 'success',
+          title: 'Catalog Exported',
+          description: `Exported JSON metadata for ${files.length} images.`
+        });
       }
     }),
     {

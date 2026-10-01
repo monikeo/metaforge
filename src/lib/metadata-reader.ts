@@ -331,7 +331,7 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
       {
         id: `hist-init-${Date.now()}`,
         timestamp: Date.now(),
-        actor: 'System',
+        actor: 'System' as const,
         action: 'Imported File',
         diffSummary: 'Initial metadata loaded from file headers'
       }
