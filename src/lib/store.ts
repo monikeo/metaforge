@@ -1060,18 +1060,27 @@ export const useMetaForgeStore = create<MetaForgeState>()(
       },
 
       exportSingle: (fileId: string) => {
-        const file = get().files.find((f) => f.id === fileId);
-        if (!file) return;
+        try {
+          const file = get().files.find((f) => f.id === fileId);
+          if (!file) return;
 
-        const blob = file.modifiedBlob || file.originalBlob;
-        const prefix = file.modifiedBlob ? 'metaforge_' : '';
-        saveAs(blob, `${prefix}${file.name}`);
+          const blob = file.modifiedBlob || file.originalBlob;
+          const prefix = file.modifiedBlob ? 'metaforge_' : '';
+          saveAs(blob, `${prefix}${file.name}`);
 
-        get().addToast({
-          type: 'success',
-          title: 'Export Started',
-          description: `Saved ${file.name}.`
-        });
+          get().addToast({
+            type: 'success',
+            title: 'Export Started',
+            description: `Saved ${file.name}.`
+          });
+        } catch (err: any) {
+          console.error('Failed export single:', err);
+          get().addToast({
+            type: 'error',
+            title: 'Export Failed',
+            description: err?.message || 'Could not download image file.'
+          });
+        }
       },
 
       exportAllZip: async () => {
@@ -1099,9 +1108,14 @@ export const useMetaForgeStore = create<MetaForgeState>()(
             title: 'ZIP Export Complete',
             description: `Packaged ${files.length} images into ZIP.`
           });
-        } catch (err) {
+        } catch (err: any) {
           console.error('Failed exporting zip', err);
           set({ isProcessing: false, processingMessage: '' });
+          get().addToast({
+            type: 'error',
+            title: 'ZIP Export Failed',
+            description: err?.message || 'Could not package images into ZIP archive.'
+          });
         }
       },
 
@@ -1120,72 +1134,90 @@ export const useMetaForgeStore = create<MetaForgeState>()(
       },
 
       exportMetadataJson: (fileId: string) => {
-        const file = get().files.find((f) => f.id === fileId);
-        if (!file) return;
+        try {
+          const file = get().files.find((f) => f.id === fileId);
+          if (!file) return;
 
-        const payload = {
-          file: {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            width: file.width,
-            height: file.height,
-            lastModified: file.lastModified
-          },
-          privacyReport: {
-            score: file.privacyReport.score,
-            riskLevel: file.privacyReport.riskLevel,
-            hasGps: file.privacyReport.hasGps,
-            issues: file.privacyReport.issues
-          },
-          seoMetadata: file.seoData,
-          aiWorkflow: file.aiWorkflow,
-          exif: file.rawMetadata?.exif || {},
-          iptc: file.rawMetadata?.iptc || {},
-          xmp: file.rawMetadata?.xmp || {},
-          gps: file.rawMetadata?.gps || {},
-          history: file.history
-        };
+          const payload = {
+            file: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              width: file.width,
+              height: file.height,
+              lastModified: file.lastModified
+            },
+            privacyReport: {
+              score: file.privacyReport.score,
+              riskLevel: file.privacyReport.riskLevel,
+              hasGps: file.privacyReport.hasGps,
+              issues: file.privacyReport.issues
+            },
+            seoMetadata: file.seoData,
+            aiWorkflow: file.aiWorkflow,
+            exif: file.rawMetadata?.exif || {},
+            iptc: file.rawMetadata?.iptc || {},
+            xmp: file.rawMetadata?.xmp || {},
+            gps: file.rawMetadata?.gps || {},
+            history: file.history
+          };
 
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        saveAs(blob, `${file.name.replace(/\.[^/.]+$/, '')}_metadata.json`);
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          saveAs(blob, `${file.name.replace(/\.[^/.]+$/, '')}_metadata.json`);
 
-        get().addToast({
-          type: 'success',
-          title: 'JSON Exported',
-          description: `Saved metadata dictionary for ${file.name}.`
-        });
+          get().addToast({
+            type: 'success',
+            title: 'JSON Exported',
+            description: `Saved metadata dictionary for ${file.name}.`
+          });
+        } catch (err: any) {
+          console.error('Failed exporting metadata JSON:', err);
+          get().addToast({
+            type: 'error',
+            title: 'JSON Export Failed',
+            description: err?.message || 'Could not export metadata dictionary.'
+          });
+        }
       },
 
       exportAllMetadataJson: () => {
-        const { files } = get();
-        if (!files.length) return;
+        try {
+          const { files } = get();
+          if (!files.length) return;
 
-        const allPayload = files.map((file) => ({
-          file: {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            width: file.width,
-            height: file.height
-          },
-          privacyThreatScore: file.privacyReport.score,
-          privacyRiskLevel: file.privacyReport.riskLevel,
-          seoData: file.seoData,
-          aiWorkflow: file.aiWorkflow.detected ? file.aiWorkflow : undefined,
-          exif: file.rawMetadata?.exif,
-          iptc: file.rawMetadata?.iptc,
-          xmp: file.rawMetadata?.xmp
-        }));
+          const allPayload = files.map((file) => ({
+            file: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              width: file.width,
+              height: file.height
+            },
+            privacyThreatScore: file.privacyReport.score,
+            privacyRiskLevel: file.privacyReport.riskLevel,
+            seoData: file.seoData,
+            aiWorkflow: file.aiWorkflow.detected ? file.aiWorkflow : undefined,
+            exif: file.rawMetadata?.exif,
+            iptc: file.rawMetadata?.iptc,
+            xmp: file.rawMetadata?.xmp
+          }));
 
-        const blob = new Blob([JSON.stringify(allPayload, null, 2)], { type: 'application/json' });
-        saveAs(blob, `metaforge_catalog_${new Date().toISOString().slice(0, 10)}.json`);
+          const blob = new Blob([JSON.stringify(allPayload, null, 2)], { type: 'application/json' });
+          saveAs(blob, `metaforge_catalog_${new Date().toISOString().slice(0, 10)}.json`);
 
-        get().addToast({
-          type: 'success',
-          title: 'Catalog Exported',
-          description: `Exported JSON metadata for ${files.length} images.`
-        });
+          get().addToast({
+            type: 'success',
+            title: 'Catalog Exported',
+            description: `Exported JSON metadata for ${files.length} images.`
+          });
+        } catch (err: any) {
+          console.error('Failed exporting catalog JSON:', err);
+          get().addToast({
+            type: 'error',
+            title: 'Catalog Export Failed',
+            description: err?.message || 'Could not export JSON catalog.'
+          });
+        }
       }
     }),
     {

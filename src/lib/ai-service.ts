@@ -57,6 +57,32 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
   });
 }
 
+/**
+ * Auto-diagnoses raw Gemini API / network errors into actionable descriptions
+ */
+function classifyGeminiError(err: any): Error {
+  const msg = String(err?.message || err || '');
+  const status = err?.status || err?.statusCode || 0;
+
+  if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid') || status === 400 || status === 403) {
+    return new Error('Invalid Gemini API Key. Please verify or re-enter your key in AI Settings (⌘K).');
+  }
+  if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || status === 429) {
+    return new Error('Gemini API rate limit exceeded. Please wait a few seconds before generating again.');
+  }
+  if (msg.includes('SAFETY') || msg.includes('blocked') || msg.includes('HARM_CATEGORY')) {
+    return new Error('Image analysis blocked by Gemini safety filters (contains sensitive content).');
+  }
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('offline')) {
+    return new Error('Network connection to Google Gemini endpoint failed. Check your internet connection.');
+  }
+  if (msg.includes('not found') || msg.includes('model') || status === 404) {
+    return new Error('Requested Gemini model not available on your API key tier. Try switching to gemini-2.5-flash.');
+  }
+
+  return new Error(`Gemini Vision analysis error: ${msg || 'Unknown failure'}`);
+}
+
 export async function generateImageSeoMetadata(
   apiKey: string,
   imageBlob: Blob,
@@ -96,27 +122,33 @@ Respond in strict JSON format with this exact JSON schema:
   }
 }`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType,
-              data: base64Data
+  let response: any;
+  try {
+    response = await ai.models.generateContent({
+      model: modelName,
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType,
+                data: base64Data
+              }
             }
-          }
-        ]
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: 'application/json'
       }
-    ],
-    config: {
-      responseMimeType: 'application/json'
-    }
-  });
+    });
+  } catch (apiErr: any) {
+    console.error('Gemini generateContent raw error:', apiErr);
+    throw classifyGeminiError(apiErr);
+  }
 
-  let cleanedText = (response.text || '{}').trim();
+  let cleanedText = (response?.text || '{}').trim();
   if (cleanedText.startsWith('```')) {
     cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   }
@@ -135,6 +167,6 @@ Respond in strict JSON format with this exact JSON schema:
     };
   } catch (err) {
     console.error('Failed to parse Gemini response as JSON:', cleanedText, err);
-    throw new Error('Could not parse AI response. Please try again.');
+    throw new Error('Could not parse Gemini JSON response structure. Please try generating again.');
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Flame, 
@@ -38,11 +38,55 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import ScrollProgress from '@/components/ScrollExperience/ScrollProgress';
+
+const SECTIONS = [
+  { id: 'quick-cheat-sheet', title: 'Quick Action Cheat Sheet', icon: Zap, color: 'text-amber-400', category: 'Overview' },
+  { id: 'inspection', title: '1. Metadata Inspection & Tag CRUD', icon: FileText, color: 'text-blue-400', category: 'Core' },
+  { id: 'compare', title: '2. Metadata Comparator & Live Sync', icon: GitCompare, color: 'text-amber-400', category: 'Workflows' },
+  { id: 'presets', title: '3. Metadata & SEO Presets Manager', icon: Sliders, color: 'text-purple-400', category: 'Automation' },
+  { id: 'privacy', title: '4. Privacy Shield & OPSEC Scrubbing', icon: ShieldAlert, color: 'text-rose-400', category: 'Security' },
+  { id: 'ai-workflow', title: '5. ComfyUI & SD Prompt Decoder', icon: Cpu, color: 'text-indigo-400', category: 'AI Generation' },
+  { id: 'gemini-seo', title: '6. Gemini Vision AI SEO Studio', icon: Sparkles, color: 'text-purple-400', category: 'AI Intelligence' },
+  { id: 'social-preview', title: '7. Search & Social Card Simulator', icon: Globe, color: 'text-emerald-400', category: 'Publishing' },
+  { id: 'sitemap-xml', title: '8. Image Sitemap (XML) Builder', icon: FileCode, color: 'text-cyan-400', category: 'SEO' },
+  { id: 'batch-zip', title: '9. Batch Queue & Bulk Operations', icon: Download, color: 'text-indigo-400', category: 'Productivity' },
+  { id: 'history', title: '10. Audit History & Snapshot Rollback', icon: History, color: 'text-emerald-400', category: 'Version Control' },
+  { id: 'json-catalog', title: '11. JSON Metadata Catalog Export', icon: Layers, color: 'text-amber-400', category: 'Developer' },
+  { id: 'canvas-shortcuts', title: '12. Canvas Zoom, Pan & Shortcuts', icon: Keyboard, color: 'text-pink-400', category: 'Navigation' },
+  { id: 'hex-viewer', title: '13. Raw Hex Stream & Byte Headers', icon: Binary, color: 'text-cyan-400', category: 'Low-Level' },
+  { id: 'troubleshooting-faq', title: '14. Troubleshooting & FAQ', icon: HelpCircle, color: 'text-teal-400', category: 'Support' }
+];
 
 export default function TutorialPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [activeSection, setActiveSection] = useState<string>('quick-cheat-sheet');
+
+  const sections = SECTIONS;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((entry) => entry.isIntersecting);
+        if (visible?.target?.id) {
+          setActiveSection(visible.target.id);
+        }
+      },
+      {
+        rootMargin: '-15% 0% -60% 0%',
+        threshold: [0, 0.2, 0.5]
+      }
+    );
+
+    SECTIONS.forEach((sec) => {
+      const el = document.getElementById(sec.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleCopy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -53,24 +97,6 @@ export default function TutorialPage() {
   const toggleFaq = (idx: number) => {
     setExpandedFaq(expandedFaq === idx ? null : idx);
   };
-
-  const sections = [
-    { id: 'quick-cheat-sheet', title: 'Quick Action Cheat Sheet', icon: Zap, color: 'text-amber-400', category: 'Overview' },
-    { id: 'inspection', title: '1. Metadata Inspection & Tag CRUD', icon: FileText, color: 'text-blue-400', category: 'Core' },
-    { id: 'compare', title: '2. Metadata Comparator & Live Sync', icon: GitCompare, color: 'text-amber-400', category: 'Workflows' },
-    { id: 'presets', title: '3. Metadata & SEO Presets Manager', icon: Sliders, color: 'text-purple-400', category: 'Automation' },
-    { id: 'privacy', title: '4. Privacy Shield & OPSEC Scrubbing', icon: ShieldAlert, color: 'text-rose-400', category: 'Security' },
-    { id: 'ai-workflow', title: '5. ComfyUI & SD Prompt Decoder', icon: Cpu, color: 'text-indigo-400', category: 'AI Generation' },
-    { id: 'gemini-seo', title: '6. Gemini Vision AI SEO Studio', icon: Sparkles, color: 'text-purple-400', category: 'AI Intelligence' },
-    { id: 'social-preview', title: '7. Search & Social Card Simulator', icon: Globe, color: 'text-emerald-400', category: 'Publishing' },
-    { id: 'sitemap-xml', title: '8. Image Sitemap (XML) Builder', icon: FileCode, color: 'text-cyan-400', category: 'SEO' },
-    { id: 'batch-zip', title: '9. Batch Queue & Bulk Operations', icon: Download, color: 'text-indigo-400', category: 'Productivity' },
-    { id: 'history', title: '10. Audit History & Snapshot Rollback', icon: History, color: 'text-emerald-400', category: 'Version Control' },
-    { id: 'json-catalog', title: '11. JSON Metadata Catalog Export', icon: Layers, color: 'text-amber-400', category: 'Developer' },
-    { id: 'canvas-shortcuts', title: '12. Canvas Zoom, Pan & Shortcuts', icon: Keyboard, color: 'text-pink-400', category: 'Navigation' },
-    { id: 'hex-viewer', title: '13. Raw Hex Stream & Byte Headers', icon: Binary, color: 'text-cyan-400', category: 'Low-Level' },
-    { id: 'troubleshooting-faq', title: '14. Troubleshooting & FAQ', icon: HelpCircle, color: 'text-teal-400', category: 'Support' }
-  ];
 
   const filteredSections = sections.filter((s) => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -142,6 +168,7 @@ export default function TutorialPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-purple-500/30 selection:text-purple-200">
+      <ScrollProgress />
       
       {/* Top Navbar */}
       <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
@@ -204,16 +231,24 @@ export default function TutorialPage() {
             <nav className="flex flex-col gap-1 max-h-[calc(100vh-290px)] overflow-y-auto pr-1 text-xs">
               {filteredSections.map((sec) => {
                 const Icon = sec.icon;
+                const isActive = activeSection === sec.id;
                 return (
                   <a
                     key={sec.id}
                     href={`#${sec.id}`}
-                    className="flex items-center justify-between px-2.5 py-2 rounded-xl text-neutral-300 hover:text-white hover:bg-neutral-800/80 transition group"
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-xl transition group ${
+                      isActive
+                        ? 'bg-purple-600/20 text-purple-200 border border-purple-500/30 font-semibold shadow-xs'
+                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800/80 border border-transparent'
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Icon className={`w-3.5 h-3.5 shrink-0 ${sec.color}`} />
                       <span className="truncate">{sec.title}</span>
                     </div>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
+                    )}
                   </a>
                 );
               })}

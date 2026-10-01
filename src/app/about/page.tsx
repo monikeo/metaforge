@@ -21,6 +21,8 @@ import {
   HardDrive
 } from 'lucide-react';
 
+import ScrollProgress from '@/components/ScrollExperience/ScrollProgress';
+
 export const metadata = {
   title: 'About & Technical Architecture — MetaForge',
   description: 'Deep technical overview of MetaForge dual-engine architecture, browser WebAssembly metadata core, Google Gemini BYOK vision layer, and privacy threat model.'
@@ -38,6 +40,7 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-purple-500/30 selection:text-purple-200">
+      <ScrollProgress />
       
       {/* Top Navbar */}
       <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">

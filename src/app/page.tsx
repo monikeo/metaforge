@@ -16,6 +16,7 @@ import SitemapExport from '@/components/SEO/SitemapExport';
 import AppSidebar from '@/components/Navigation/AppSidebar';
 import CommandPalette from '@/components/CommandPalette';
 import Toasts from '@/components/Toasts';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import DashboardView from '@/components/Dashboard/DashboardView';
 import MetadataCompareView from '@/components/Compare/MetadataCompareView';
 import PresetsView from '@/components/Presets/PresetsView';
@@ -155,22 +156,30 @@ export default function MetaForgeStudio() {
         <div className="flex-1 flex flex-col min-w-0">
           {currentView === 'dashboard' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <DashboardView />
+              <ErrorBoundary fallbackTitle="Metadata Analytics Dashboard">
+                <DashboardView />
+              </ErrorBoundary>
             </div>
           )}
           {currentView === 'compare' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <MetadataCompareView />
+              <ErrorBoundary fallbackTitle="Metadata Comparator Studio">
+                <MetadataCompareView />
+              </ErrorBoundary>
             </div>
           )}
           {currentView === 'presets' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <PresetsView />
+              <ErrorBoundary fallbackTitle="Presets Manager Studio">
+                <PresetsView />
+              </ErrorBoundary>
             </div>
           )}
           {currentView === 'jobs' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <BatchJobsView />
+              <ErrorBoundary fallbackTitle="Batch Automation Queue">
+                <BatchJobsView />
+              </ErrorBoundary>
             </div>
           )}
           
@@ -374,7 +383,9 @@ export default function MetaForgeStudio() {
                   <div className="flex-1 flex flex-col gap-3 pb-16">
                     {mobileSection === 'canvas' && activeFile && (
                       <div className="flex flex-col gap-3 animate-fade-in">
-                        <ImageCanvasPreview file={activeFile} />
+                        <ErrorBoundary fallbackTitle="Mobile Canvas Preview">
+                          <ImageCanvasPreview file={activeFile} />
+                        </ErrorBoundary>
 
                         {/* Quick Metadata Summary Pill Card */}
                         <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-2">
@@ -422,25 +433,31 @@ export default function MetaForgeStudio() {
 
                     {mobileSection === 'tags' && activeFile && (
                       <div className="flex flex-col gap-3 animate-fade-in">
-                        <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800">
-                          <MetadataExplorer fileId={activeFile.id} />
-                        </div>
+                        <ErrorBoundary fallbackTitle="Metadata Explorer">
+                          <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800">
+                            <MetadataExplorer fileId={activeFile.id} />
+                          </div>
+                        </ErrorBoundary>
                       </div>
                     )}
 
                     {mobileSection === 'privacy' && activeFile && (
                       <div className="flex flex-col gap-3 animate-fade-in">
-                        <PrivacyAuditor fileId={activeFile.id} />
+                        <ErrorBoundary fallbackTitle="Privacy Auditor">
+                          <PrivacyAuditor fileId={activeFile.id} />
+                        </ErrorBoundary>
                       </div>
                     )}
 
                     {mobileSection === 'seo' && activeFile && (
                       <div className="flex flex-col gap-4 animate-fade-in">
-                        <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
-                          <AIGeneratorPanel fileId={activeFile.id} />
-                        </div>
-                        <SeoPreviewCard file={activeFile} />
-                        <SitemapExport />
+                        <ErrorBoundary fallbackTitle="AI SEO Studio">
+                          <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
+                            <AIGeneratorPanel fileId={activeFile.id} />
+                          </div>
+                          <SeoPreviewCard file={activeFile} />
+                          <SitemapExport />
+                        </ErrorBoundary>
                       </div>
                     )}
 
@@ -496,7 +513,9 @@ export default function MetaForgeStudio() {
                   {/* Left Column (5 cols, 42%): Filmstrip & Canvas Preview */}
                   <div className="w-[42%] flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
                     {activeFile && (
-                      <ImageCanvasPreview file={activeFile} />
+                      <ErrorBoundary fallbackTitle="Tablet Canvas Preview">
+                        <ImageCanvasPreview file={activeFile} />
+                      </ErrorBoundary>
                     )}
                     <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
                       <ImageGallery />
@@ -565,35 +584,45 @@ export default function MetaForgeStudio() {
                     {activeFile && (
                       <div className="flex flex-col gap-4 animate-fade-in">
                         {tabletInspectorTab === 'metadata' && (
-                          <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800">
-                            <MetadataExplorer fileId={activeFile.id} />
-                          </div>
+                          <ErrorBoundary fallbackTitle="Metadata Explorer">
+                            <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800">
+                              <MetadataExplorer fileId={activeFile.id} />
+                            </div>
+                          </ErrorBoundary>
                         )}
 
                         {tabletInspectorTab === 'privacy' && (
-                          <PrivacyAuditor fileId={activeFile.id} />
+                          <ErrorBoundary fallbackTitle="Privacy Auditor">
+                            <PrivacyAuditor fileId={activeFile.id} />
+                          </ErrorBoundary>
                         )}
 
                         {tabletInspectorTab === 'seo' && (
-                          <div className="flex flex-col gap-4">
-                            <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
-                              <AIGeneratorPanel fileId={activeFile.id} />
+                          <ErrorBoundary fallbackTitle="AI SEO Studio">
+                            <div className="flex flex-col gap-4">
+                              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
+                                <AIGeneratorPanel fileId={activeFile.id} />
+                              </div>
+                              <SeoPreviewCard file={activeFile} />
+                              <SitemapExport />
                             </div>
-                            <SeoPreviewCard file={activeFile} />
-                            <SitemapExport />
-                          </div>
+                          </ErrorBoundary>
                         )}
 
                         {tabletInspectorTab === 'workflow' && (
-                          <AIWorkflowDetect workflow={activeFile.aiWorkflow} />
+                          <ErrorBoundary fallbackTitle="AI Workflow Graph">
+                            <AIWorkflowDetect workflow={activeFile.aiWorkflow} />
+                          </ErrorBoundary>
                         )}
 
                         {tabletInspectorTab === 'hex' && (
-                          <RawHexViewer
-                            hexData={activeFile.rawHexSample}
-                            fileName={activeFile.name}
-                            fileSize={activeFile.size}
-                          />
+                          <ErrorBoundary fallbackTitle="Raw Hex Stream">
+                            <RawHexViewer
+                              hexData={activeFile.rawHexSample}
+                              fileName={activeFile.name}
+                              fileSize={activeFile.size}
+                            />
+                          </ErrorBoundary>
                         )}
                       </div>
                     )}
@@ -673,7 +702,9 @@ export default function MetaForgeStudio() {
                     <section className="col-span-5 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                       {activeFile && (
                         <>
-                          <ImageCanvasPreview file={activeFile} />
+                          <ErrorBoundary fallbackTitle="Desktop Canvas Preview">
+                            <ImageCanvasPreview file={activeFile} />
+                          </ErrorBoundary>
 
                           {/* Sub-Tabs for Center Inspector */}
                           <div className="flex flex-col gap-2.5">
@@ -721,19 +752,25 @@ export default function MetaForgeStudio() {
                             {/* Active Tab View */}
                             <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 animate-fade-in">
                               {activeTab === 'inspector' && (
-                                <MetadataExplorer fileId={activeFile.id} />
+                                <ErrorBoundary fallbackTitle="Metadata Explorer">
+                                  <MetadataExplorer fileId={activeFile.id} />
+                                </ErrorBoundary>
                               )}
 
                               {activeTab === 'workflow' && (
-                                <AIWorkflowDetect workflow={activeFile.aiWorkflow} />
+                                <ErrorBoundary fallbackTitle="AI Workflow Graph">
+                                  <AIWorkflowDetect workflow={activeFile.aiWorkflow} />
+                                </ErrorBoundary>
                               )}
 
                               {activeTab === 'hex' && (
-                                <RawHexViewer
-                                  hexData={activeFile.rawHexSample}
-                                  fileName={activeFile.name}
-                                  fileSize={activeFile.size}
-                                />
+                                <ErrorBoundary fallbackTitle="Raw Hex Stream">
+                                  <RawHexViewer
+                                    hexData={activeFile.rawHexSample}
+                                    fileName={activeFile.name}
+                                    fileSize={activeFile.size}
+                                  />
+                                </ErrorBoundary>
                               )}
                             </div>
                           </div>
@@ -790,23 +827,25 @@ export default function MetaForgeStudio() {
                           {/* Desktop Tab Contents */}
                           <div className="flex flex-col gap-4 animate-fade-in">
                             {desktopStudioTab === 'seo' && (
-                              <>
+                              <ErrorBoundary fallbackTitle="AI SEO Studio">
                                 <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
                                   <AIGeneratorPanel fileId={activeFile.id} />
                                 </div>
                                 <SeoPreviewCard file={activeFile} />
-                              </>
+                              </ErrorBoundary>
                             )}
 
                             {desktopStudioTab === 'privacy' && (
-                              <PrivacyAuditor fileId={activeFile.id} />
+                              <ErrorBoundary fallbackTitle="Privacy Auditor">
+                                <PrivacyAuditor fileId={activeFile.id} />
+                              </ErrorBoundary>
                             )}
 
                             {desktopStudioTab === 'sitemap' && (
-                              <>
+                              <ErrorBoundary fallbackTitle="Sitemaps & SEO Cards">
                                 <SitemapExport />
                                 <SeoPreviewCard file={activeFile} />
-                              </>
+                              </ErrorBoundary>
                             )}
                           </div>
                         </>
