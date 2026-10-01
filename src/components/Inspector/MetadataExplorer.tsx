@@ -119,7 +119,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
     return (
       <div
         key={key}
-        className="group flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-neutral-800/60 transition text-xs font-mono"
+        className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-neutral-800/60 transition text-xs font-mono min-h-[38px]"
       >
         <div className="flex items-baseline gap-2 min-w-0 pr-2">
           <span className="text-neutral-400 font-semibold shrink-0 select-text">
@@ -134,7 +134,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
           <button
             onClick={() => handleCopy(fullPath, displayValue)}
             title="Copy value"
-            className="p-1 rounded text-neutral-400 hover:text-white hover:bg-neutral-700"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-700 min-w-[32px] min-h-[32px] flex items-center justify-center"
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
@@ -144,14 +144,14 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
               <button
                 onClick={() => setEditingTarget({ section: sectionName, key, value })}
                 title="Edit tag"
-                className="p-1 rounded text-neutral-400 hover:text-purple-400 hover:bg-neutral-700"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-purple-400 hover:bg-neutral-700 min-w-[32px] min-h-[32px] flex items-center justify-center"
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => deleteTag(file.id, sectionName, key)}
                 title="Delete tag"
-                className="p-1 rounded text-neutral-400 hover:text-rose-400 hover:bg-neutral-700"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-700 min-w-[32px] min-h-[32px] flex items-center justify-center"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -173,12 +173,12 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
             placeholder="Filter EXIF, IPTC, XMP tags..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700 transition"
+            className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700 transition min-h-[40px] sm:min-h-0"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-white p-1"
             >
               Clear
             </button>
@@ -187,7 +187,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
 
         <button
           onClick={() => setEditingTarget({ section: 'iptc', key: '', value: '', isNew: true })}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shrink-0 shadow-xs"
+          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shrink-0 shadow-xs min-h-[40px] sm:min-h-0 cursor-pointer"
           title="Add new EXIF, IPTC, or XMP tag"
         >
           <Plus className="w-3.5 h-3.5" />

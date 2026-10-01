@@ -7,11 +7,11 @@ import {
   ZoomIn, 
   ZoomOut, 
   RotateCcw, 
-  Download,
-  History,
-  Edit2,
-  Check,
-  X,
+  Download, 
+  History, 
+  Edit2, 
+  Check, 
+  X, 
   FileCode 
 } from 'lucide-react';
 import MetadataHistoryModal from '../History/MetadataHistoryModal';
@@ -100,11 +100,11 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
                   }
                 }}
                 autoFocus
-                className="px-2 py-0.5 bg-neutral-950 border border-purple-500 rounded-lg text-xs font-bold text-white focus:outline-none w-44 sm:w-56 font-mono"
+                className="px-2.5 py-1 bg-neutral-950 border border-purple-500 rounded-lg text-xs font-bold text-white focus:outline-none w-40 sm:w-56 font-mono min-h-[36px]"
               />
               <button
                 onClick={handleSaveName}
-                className="p-1 rounded bg-purple-600 hover:bg-purple-500 text-white"
+                className="p-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
                 title="Save filename"
               >
                 <Check className="w-3.5 h-3.5" />
@@ -114,7 +114,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
                   setNameInput(file.name);
                   setIsEditingName(false);
                 }}
-                className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+                className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
                 title="Cancel"
               >
                 <X className="w-3.5 h-3.5" />
@@ -125,14 +125,14 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
               <span
                 onClick={() => setIsEditingName(true)}
                 title="Click to rename file"
-                className="text-xs font-bold text-white truncate max-w-[140px] sm:max-w-xs cursor-pointer hover:text-purple-300 transition"
+                className="text-xs font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs cursor-pointer hover:text-purple-300 transition"
               >
                 {file.name}
               </span>
               <button
                 onClick={() => setIsEditingName(true)}
                 title="Rename file"
-                className="p-0.5 rounded text-neutral-500 hover:text-white"
+                className="p-1 rounded-lg text-neutral-500 hover:text-white min-w-[32px] min-h-[32px] flex items-center justify-center"
               >
                 <Edit2 className="w-3 h-3" />
               </button>
@@ -155,24 +155,24 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <button
             onClick={handleZoomOut}
             title="Zoom Out"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <span className="text-[11px] font-mono text-neutral-400 w-9 text-center select-none">
+          <span className="text-[11px] font-mono text-neutral-400 w-8 text-center select-none">
             {Math.round(scale * 100)}%
           </span>
           <button
             onClick={handleZoomIn}
             title="Zoom In"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleReset}
             title="Reset Zoom & Pan"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -180,25 +180,25 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <button
             onClick={() => setIsHistoryOpen(true)}
             title="Audit History & Snapshots"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition relative"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 active:scale-95 transition relative min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
           >
             <History className="w-3.5 h-3.5 text-purple-400" />
             {file.history && file.history.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-500" />
+              <span className="absolute 1.5 top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
             )}
           </button>
 
           <button
             onClick={() => exportMetadataJson(file.id)}
             title="Export Metadata as JSON (.json)"
-            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 active:scale-95 transition"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 active:scale-95 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
           >
             <FileCode className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={() => exportSingle(file.id)}
-            className="ml-1 sm:ml-2 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition active:scale-95 shadow-xs"
+            className="ml-1 sm:ml-2 flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition active:scale-95 shadow-xs min-h-[36px] cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-blue-400" />
             <span className="hidden sm:inline">Download</span>
@@ -213,7 +213,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onDoubleClick={handleDoubleTap}
-        className={`relative w-full h-[280px] sm:h-[380px] md:h-[420px] rounded-xl overflow-hidden bg-black/80 flex items-center justify-center select-none touch-none ${
+        className={`relative w-full h-[260px] xs:h-[300px] sm:h-[380px] md:h-[420px] rounded-xl overflow-hidden bg-black/80 flex items-center justify-center select-none touch-none ${
           scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
         }`}
         style={{
@@ -238,7 +238,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <img
             src={file.thumbnailUrl}
             alt={file.name}
-            className="max-h-[250px] sm:max-h-[350px] md:max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
+            className="max-h-[230px] xs:max-h-[270px] sm:max-h-[350px] md:max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
           />
         </div>
 

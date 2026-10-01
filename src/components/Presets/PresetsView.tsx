@@ -75,7 +75,7 @@ export default function PresetsView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
+    <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
@@ -88,19 +88,19 @@ export default function PresetsView() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           <div className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl p-1 text-xs font-semibold">
             <button
               onClick={() => setSelectedTarget('all')}
-              className={`px-3 py-1 rounded-lg transition ${
+              className={`px-3 py-1.5 rounded-lg transition touch-target sm:min-h-0 sm:min-w-0 ${
                 selectedTarget === 'all' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              All Images ({files.length})
+              All ({files.length})
             </button>
             <button
               onClick={() => setSelectedTarget('active')}
-              className={`px-3 py-1 rounded-lg transition ${
+              className={`px-3 py-1.5 rounded-lg transition touch-target sm:min-h-0 sm:min-w-0 ${
                 selectedTarget === 'active' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -110,7 +110,7 @@ export default function PresetsView() {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/20"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/20 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             New Preset
@@ -146,7 +146,7 @@ export default function PresetsView() {
                   {preset.id.startsWith('preset-') && !['preset-seo-web', 'preset-photographer', 'preset-ecommerce', 'preset-social-opsec'].includes(preset.id) && (
                     <button
                       onClick={() => deletePreset(preset.id)}
-                      className="p-1 rounded text-neutral-500 hover:text-rose-400"
+                      className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 touch-target sm:min-h-0 sm:min-w-0"
                       title="Delete preset"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -172,7 +172,7 @@ export default function PresetsView() {
               <button
                 onClick={() => handleApply(preset.id)}
                 disabled={files.length === 0}
-                className="w-full py-2.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 hover:border-neutral-600 transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 hover:border-neutral-600 transition flex items-center justify-center gap-1.5 disabled:opacity-50 touch-target sm:min-h-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5 text-purple-400" />
                 Apply Preset to {selectedTarget === 'all' ? `All (${files.length})` : 'Active'}
@@ -182,13 +182,22 @@ export default function PresetsView() {
         })}
       </div>
 
-      {/* Create Preset Modal */}
+      {/* Create Preset Modal (Bottom Sheet on mobile, modal on desktop) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6">
+            {/* Mobile Pull Handle */}
+            <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-              <h3 className="text-sm font-bold text-white">Create Metadata &amp; SEO Preset</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1 text-neutral-400 hover:text-white">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-purple-400" />
+                <h3 className="text-sm font-bold text-white">Create New Metadata Preset</h3>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -202,17 +211,17 @@ export default function PresetsView() {
                   placeholder="e.g. Agency Client Batch Preset"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                  className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="font-semibold text-neutral-300">Category</label>
                   <select
                     value={category}
                     onChange={(e: any) => setCategory(e.target.value)}
-                    className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none"
+                    className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 focus:outline-none min-h-[40px] sm:min-h-0"
                   >
                     <option value="SEO">SEO</option>
                     <option value="Photography">Photography</option>
@@ -229,7 +238,7 @@ export default function PresetsView() {
                     placeholder="Studio or Author"
                     value={artist}
                     onChange={(e) => setArtist(e.target.value)}
-                    className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                    className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                   />
                 </div>
               </div>
@@ -241,7 +250,7 @@ export default function PresetsView() {
                   placeholder="© 2026 Brand Name. All rights reserved."
                   value={copyright}
                   onChange={(e) => setCopyright(e.target.value)}
-                  className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                  className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                 />
               </div>
 
@@ -252,43 +261,43 @@ export default function PresetsView() {
                   placeholder="e.g. editorial, portrait, nature, travel"
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                  className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                 />
               </div>
 
-              <div className="flex items-center gap-4 py-1">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 py-1">
+                <label className="flex items-center gap-2 cursor-pointer touch-target sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={stripGps}
                     onChange={(e) => setStripGps(e.target.checked)}
-                    className="rounded bg-neutral-950 border-neutral-800 text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-neutral-950 border-neutral-800 text-purple-600 focus:ring-0"
                   />
-                  <span className="text-neutral-300">Strip GPS Coordinates</span>
+                  <span className="text-neutral-300 text-xs">Strip GPS Coordinates</span>
                 </label>
 
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer touch-target sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={stripSerials}
                     onChange={(e) => setStripSerials(e.target.checked)}
-                    className="rounded bg-neutral-950 border-neutral-800 text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-neutral-950 border-neutral-800 text-purple-600 focus:ring-0"
                   />
-                  <span className="text-neutral-300">Strip Camera Serials</span>
+                  <span className="text-neutral-300 text-xs">Strip Camera Serials</span>
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-neutral-800">
+              <div className="flex justify-end items-center gap-2 pt-2 border-t border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-neutral-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-neutral-400 hover:text-white touch-target sm:min-h-0 sm:min-w-0"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20"
+                  className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
                 >
                   Save Preset
                 </button>

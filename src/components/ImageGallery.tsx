@@ -8,7 +8,7 @@ import {
   Trash2, 
   Search, 
   Image as ImageIcon,
-  Check,
+  Check, 
   ShieldAlert, 
   Filter, 
   CheckSquare, 
@@ -68,11 +68,11 @@ export default function ImageGallery() {
       {/* Search & Bulk Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300">
-          <ImageIcon className="w-3.5 h-3.5 text-neutral-400" />
+          <ImageIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
           <span>Queue ({files.length})</span>
           {selectedFileIds.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30">
-              {selectedFileIds.length} selected
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 shrink-0">
+              {selectedFileIds.length} sel
             </span>
           )}
         </div>
@@ -81,7 +81,7 @@ export default function ImageGallery() {
           {files.length > 0 && (
             <button
               onClick={() => (isAllSelected ? clearSelection() : selectAllFiles())}
-              className="text-[11px] text-neutral-400 hover:text-white px-1.5 py-0.5 rounded transition flex items-center gap-1"
+              className="text-[11px] text-neutral-400 hover:text-white px-2 py-1 rounded-lg transition flex items-center gap-1 min-h-[36px] sm:min-h-0"
               title="Toggle Select All"
             >
               {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-purple-400" /> : <Square className="w-3.5 h-3.5" />}
@@ -91,7 +91,7 @@ export default function ImageGallery() {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`p-1 rounded-lg transition ${
+            className={`p-2 sm:p-1.5 rounded-lg transition min-w-[36px] min-h-[36px] flex items-center justify-center ${
               showFilters ? 'bg-neutral-800 text-purple-400' : 'text-neutral-500 hover:text-white'
             }`}
             title="Toggle Filter Panel"
@@ -102,7 +102,7 @@ export default function ImageGallery() {
           {files.length > 0 && (
             <button
               onClick={clearFiles}
-              className="text-[11px] text-neutral-500 hover:text-rose-400 transition ml-1"
+              className="text-[11px] text-neutral-500 hover:text-rose-400 transition px-2 py-1 rounded min-h-[36px] sm:min-h-0 flex items-center"
             >
               Clear
             </button>
@@ -118,10 +118,10 @@ export default function ImageGallery() {
           </span>
           <button
             onClick={() => setIsBatchModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition flex items-center gap-1 shadow-sm"
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition flex items-center gap-1.5 shadow-sm touch-target sm:min-h-0 sm:min-w-0"
           >
-            <Layers className="w-3 h-3" />
-            Batch Edit / Rename
+            <Layers className="w-3.5 h-3.5" />
+            Batch Edit
           </button>
         </div>
       )}
@@ -129,15 +129,15 @@ export default function ImageGallery() {
       {/* Filter Drawer */}
       {showFilters && (
         <div className="p-2.5 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col gap-2 text-[11px] animate-in slide-in-from-top-2 duration-150">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
-              <span className="text-neutral-500 block mb-0.5">Format</span>
+              <span className="text-neutral-500 block mb-1">Format</span>
               <select
                 value={filterOptions.format}
                 onChange={(e) => setFilterOptions({ format: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-neutral-300 min-h-[36px] sm:min-h-0"
               >
-                <option value="ALL">All</option>
+                <option value="ALL">All Formats</option>
                 <option value="JPG">JPG</option>
                 <option value="JPEG">JPEG</option>
                 <option value="PNG">PNG</option>
@@ -146,26 +146,26 @@ export default function ImageGallery() {
             </div>
 
             <div>
-              <span className="text-neutral-500 block mb-0.5">Privacy</span>
+              <span className="text-neutral-500 block mb-1">Privacy</span>
               <select
                 value={filterOptions.privacyStatus}
                 onChange={(e) => setFilterOptions({ privacyStatus: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-neutral-300 min-h-[36px] sm:min-h-0"
               >
-                <option value="ALL">All</option>
+                <option value="ALL">All Statuses</option>
                 <option value="GPS_PRESENT">GPS Present</option>
-                <option value="CLEAN">Clean</option>
+                <option value="CLEAN">Clean (No GPS)</option>
               </select>
             </div>
 
             <div>
-              <span className="text-neutral-500 block mb-0.5">SEO Status</span>
+              <span className="text-neutral-500 block mb-1">SEO Status</span>
               <select
                 value={filterOptions.seoStatus}
                 onChange={(e) => setFilterOptions({ seoStatus: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-300"
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-neutral-300 min-h-[36px] sm:min-h-0"
               >
-                <option value="ALL">All</option>
+                <option value="ALL">All Statuses</option>
                 <option value="SEO_READY">SEO Ready</option>
                 <option value="NEEDS_SEO">Needs SEO</option>
               </select>
@@ -177,19 +177,19 @@ export default function ImageGallery() {
       {/* Search Input */}
       {files.length > 1 && (
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
           <input
             type="text"
-            placeholder="Search filenames / titles..."
+            placeholder="Search filenames or titles..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
+            className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-neutral-700 min-h-[40px] sm:min-h-0"
           />
         </div>
       )}
 
       {/* Thumbnails Scroll List */}
-      <div className="flex flex-col gap-2 max-h-[calc(100vh-420px)] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2 max-h-[50dvh] sm:max-h-[calc(100dvh-420px)] overflow-y-auto pr-1">
         {filteredFiles.map((file) => {
           const isActive = file.id === activeFileId;
           const isSelected = selectedFileIds.includes(file.id);
@@ -207,19 +207,20 @@ export default function ImageGallery() {
                   : 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
               }`}
             >
-              {/* Checkbox */}
+              {/* Checkbox (Touch target friendly) */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleSelectFile(file.id);
                 }}
-                className="text-neutral-500 hover:text-white p-0.5"
+                className="text-neutral-500 hover:text-white p-2 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                title="Select file"
               >
                 {isSelected ? (
                   <CheckSquare className="w-4 h-4 text-purple-400" />
                 ) : (
-                  <Square className="w-4 h-4 opacity-40 group-hover:opacity-100" />
+                  <Square className="w-4 h-4 opacity-50 group-hover:opacity-100" />
                 )}
               </button>
 
@@ -232,7 +233,7 @@ export default function ImageGallery() {
                   className="w-full h-full object-cover"
                 />
                 {file.isDirty && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-neutral-950" title="Modified in memory" />
+                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-neutral-950" title="Modified in memory" />
                 )}
               </div>
 
@@ -256,7 +257,7 @@ export default function ImageGallery() {
                 <div className="flex flex-wrap items-center gap-1 mt-0.5">
                   {hasGps && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                      <MapPin className="w-2.5 h-2.5" /> GPS Alert
+                      <MapPin className="w-2.5 h-2.5" /> GPS
                     </span>
                   )}
                   {isAi && (
@@ -277,14 +278,14 @@ export default function ImageGallery() {
                 </div>
               </div>
 
-              {/* Delete Button */}
+              {/* Delete Button (Touch-accessible on mobile without needing hover) */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeFile(file.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-neutral-800 transition"
+                className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-2 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition min-w-[36px] min-h-[36px] flex items-center justify-center"
                 title="Remove file"
               >
                 <Trash2 className="w-3.5 h-3.5" />

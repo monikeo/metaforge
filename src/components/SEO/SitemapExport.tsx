@@ -54,15 +54,18 @@ export default function SitemapExport() {
       <button
         onClick={() => setIsOpen(true)}
         disabled={files.length === 0}
-        className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-200 border border-neutral-700 transition flex items-center justify-center gap-1.5"
+        className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-200 border border-neutral-700 transition flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0"
       >
         <FileCode className="w-3.5 h-3.5 text-blue-400" />
         Generate Google Image Sitemap XML ({files.length} images)
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
+            {/* Mobile Pull Handle */}
+            <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
                 <FileCode className="w-5 h-5 text-blue-400" />
@@ -73,7 +76,7 @@ export default function SitemapExport() {
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 text-neutral-400 hover:text-white rounded"
+                className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -87,7 +90,7 @@ export default function SitemapExport() {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="https://example.com"
-                className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 font-mono min-h-[40px] sm:min-h-0"
               />
             </div>
 
@@ -95,25 +98,25 @@ export default function SitemapExport() {
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-xs text-neutral-400">
                 <span>Generated XML Payload</span>
-                <span>{files.length} indexed image entries</span>
+                <span className="font-mono">{files.length} indexed image entries</span>
               </div>
-              <pre className="max-h-64 overflow-auto p-3 rounded-xl bg-black border border-neutral-800 font-mono text-[11px] text-neutral-300 leading-relaxed select-all">
+              <pre className="max-h-56 sm:max-h-64 overflow-auto p-3 rounded-xl bg-black border border-neutral-800 font-mono text-[11px] text-neutral-300 leading-relaxed select-all">
                 {xmlContent}
               </pre>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-neutral-800">
               <button
                 onClick={handleCopy}
-                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition flex items-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? 'Copied' : 'Copy XML'}
               </button>
               <button
                 onClick={handleDownload}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 shadow-md shadow-blue-600/20"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 shadow-md shadow-blue-600/20 touch-target sm:min-h-0 sm:min-w-0"
               >
                 <Download className="w-3.5 h-3.5" />
                 Download sitemap.xml

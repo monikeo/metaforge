@@ -19,8 +19,11 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
   const history = file.history || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+      <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
@@ -32,7 +35,10 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
               <p className="text-xs text-neutral-400 font-mono truncate max-w-xs">{file.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-white rounded">
+          <button 
+            onClick={onClose} 
+            className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -87,10 +93,10 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
                         restoreHistory(file.id, record.id);
                         onClose();
                       }}
-                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-[11px] font-semibold text-neutral-300 hover:text-white transition"
+                      className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-[11px] font-semibold text-neutral-300 hover:text-white transition touch-target sm:min-h-0 sm:min-w-0"
                       title="Rollback metadata to this snapshot"
                     >
-                      <RotateCcw className="w-3 h-3 text-purple-400" />
+                      <RotateCcw className="w-3.5 h-3.5 text-purple-400" />
                       Restore
                     </button>
                   )}
@@ -98,19 +104,10 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
               );
             })
           ) : (
-            <div className="p-6 text-center text-xs text-neutral-500">
-              No previous modification snapshots recorded yet.
+            <div className="text-center py-8 text-neutral-500 text-xs">
+              No historical edits recorded yet for this asset.
             </div>
           )}
-        </div>
-
-        <div className="pt-2 border-t border-neutral-800 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

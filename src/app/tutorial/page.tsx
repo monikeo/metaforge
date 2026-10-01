@@ -42,7 +42,7 @@ export default function TutorialPage() {
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-purple-500/30 selection:text-purple-200">
       
       {/* Top Navbar */}
-      <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between">
+      <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-md flex items-center justify-center">
             <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
@@ -58,7 +58,7 @@ export default function TutorialPage() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Back to Studio</span>
@@ -66,7 +66,7 @@ export default function TutorialPage() {
           </Link>
           <Link
             href="/about"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
             About &amp; Docs
           </Link>
@@ -74,7 +74,7 @@ export default function TutorialPage() {
       </nav>
 
       {/* Main Content Layout with Sidebar TOC on Desktop */}
-      <div className="flex-1 max-w-[1500px] w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="flex-1 max-w-[1500px] w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-safe">
         
         {/* LEFT STICKY NAVIGATION (Table of Contents) */}
         <aside className="lg:col-span-3 lg:sticky lg:top-24 h-fit flex flex-col gap-3">

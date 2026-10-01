@@ -48,8 +48,10 @@ export default function MetaForgeStudio() {
     setActiveTab 
   } = useMetaForgeStore();
 
-  // Mobile/Tablet active section switcher
+  // Mobile active section switcher (< 768px)
   const [mobileSection, setMobileSection] = useState<'canvas' | 'privacy' | 'seo' | 'queue'>('canvas');
+  // Tablet active tab switcher (768px - 1199px)
+  const [tabletInspectorTab, setTabletInspectorTab] = useState<'metadata' | 'privacy' | 'seo' | 'workflow' | 'hex'>('metadata');
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
   const activeIndex = files.findIndex((f) => f.id === activeFileId);
@@ -58,8 +60,7 @@ export default function MetaForgeStudio() {
   // Keyboard navigation across images
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input or textarea
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
 
@@ -85,16 +86,16 @@ export default function MetaForgeStudio() {
   }, [files, activeIndex, setActiveFile]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-100 font-sans pb-16 md:pb-0">
+    <div className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100 font-sans pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:pb-0">
       <Header />
       <CommandPalette />
       <Toasts />
       <AISettingsModal />
 
-      {/* Keyboard Shortcuts Helper Modal */}
+      {/* Keyboard Shortcuts Helper Modal (Bottom Sheet on mobile, modal on desktop) */}
       {showKeyboardHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 pb-safe sm:pb-5">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-purple-400" />
@@ -102,32 +103,32 @@ export default function MetaForgeStudio() {
               </div>
               <button
                 onClick={() => setShowKeyboardHelp(false)}
-                className="p-1 text-neutral-400 hover:text-white rounded"
+                className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex flex-col gap-2.5 text-xs">
-              <div className="flex items-center justify-between py-1 border-b border-neutral-800/60">
+              <div className="flex items-center justify-between py-1.5 border-b border-neutral-800/60">
                 <span className="text-neutral-400">Next Image</span>
                 <kbd className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-[11px]">
                   → or ]
                 </kbd>
               </div>
-              <div className="flex items-center justify-between py-1 border-b border-neutral-800/60">
+              <div className="flex items-center justify-between py-1.5 border-b border-neutral-800/60">
                 <span className="text-neutral-400">Previous Image</span>
                 <kbd className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-[11px]">
                   ← or [
                 </kbd>
               </div>
-              <div className="flex items-center justify-between py-1 border-b border-neutral-800/60">
+              <div className="flex items-center justify-between py-1.5 border-b border-neutral-800/60">
                 <span className="text-neutral-400">Command Runner</span>
                 <kbd className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-[11px]">
                   ⌘K or /
                 </kbd>
               </div>
-              <div className="flex items-center justify-between py-1">
+              <div className="flex items-center justify-between py-1.5">
                 <span className="text-neutral-400">Close Dialogs</span>
                 <kbd className="px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 font-mono text-[11px]">
                   Esc
@@ -172,15 +173,15 @@ export default function MetaForgeStudio() {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2">
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
                       <Lock className="w-3.5 h-3.5 text-emerald-400" />
                       <span>100% In-Browser WASM</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
                       <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
                       <span>Zero Server Uploads</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                       <span>Gemini Vision BYOK</span>
                     </div>
@@ -225,117 +226,309 @@ export default function MetaForgeStudio() {
                 </div>
               </main>
             ) : (
-              /* Workstation Layout with Responsive Tablet & Mobile Mode */
-              <main className="flex-1 max-w-[1750px] w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
+              /* WORKSTATION LAYOUT: 3 DISTINCT INTENTIONAL EXPERIENCES (Mobile, Tablet, Desktop) */
+              <main className="flex-1 max-w-[1850px] w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
                 
-                {/* Tablet & Mobile Workspace Switcher Bar (Visible on < lg screens) */}
-                <div className="lg:hidden flex items-center justify-between gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl sticky top-16 z-30 shadow-md">
+                {/* 1. MOBILE EXPERIENCE CONTROLS (< 768px / md) */}
+                <div className="md:hidden flex items-center justify-between gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl sticky top-16 z-30 shadow-md">
                   <button
                     onClick={() => setMobileSection('canvas')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition touch-target ${
                       mobileSection === 'canvas'
                         ? 'bg-neutral-800 text-white shadow-xs'
                         : 'text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
-                    <FileText className="w-3.5 h-3.5 text-blue-400" />
+                    <FileText className="w-4 h-4 text-blue-400" />
                     <span>Inspector</span>
                   </button>
 
                   <button
                     onClick={() => setMobileSection('privacy')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition touch-target ${
                       mobileSection === 'privacy'
                         ? 'bg-neutral-800 text-white shadow-xs'
                         : 'text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
-                    <Shield className="w-3.5 h-3.5 text-rose-400" />
+                    <Shield className="w-4 h-4 text-rose-400" />
                     <span>Privacy</span>
                     {activeFile?.privacyReport.hasGps && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                     )}
                   </button>
 
                   <button
                     onClick={() => setMobileSection('seo')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition touch-target ${
                       mobileSection === 'seo'
                         ? 'bg-neutral-800 text-white shadow-xs'
                         : 'text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    <Sparkles className="w-4 h-4 text-purple-400" />
                     <span>SEO</span>
                   </button>
 
                   <button
                     onClick={() => setMobileSection('queue')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition touch-target ${
                       mobileSection === 'queue'
                         ? 'bg-neutral-800 text-white shadow-xs'
                         : 'text-neutral-400 hover:text-neutral-200'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                    <Layers className="w-4 h-4 text-amber-400" />
                     <span>Queue ({files.length})</span>
                   </button>
                 </div>
 
-                {/* Desktop Shortcuts Hint & Queue Navigation */}
-                <div className="hidden lg:flex items-center justify-between text-xs text-neutral-500 px-1">
+                {/* Desktop & Tablet Top Bar: Active File Navigation and Shortcut Hints */}
+                <div className="hidden md:flex items-center justify-between text-xs text-neutral-500 px-1 py-1 border-b border-neutral-850">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-neutral-400">Active File:</span>
-                    <span className="font-mono text-neutral-300 font-semibold">{activeFile?.name}</span>
-                    <span className="text-neutral-600">({activeIndex + 1} of {files.length})</span>
+                    <span className="font-mono text-neutral-200 font-semibold truncate max-w-xs">{activeFile?.name}</span>
+                    <span className="text-neutral-500 font-mono">({activeIndex + 1} of {files.length})</span>
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => {
                           const prevIdx = (activeIndex - 1 + files.length) % files.length;
                           setActiveFile(files[prevIdx].id);
                         }}
-                        className="p-1 rounded bg-neutral-900 border border-neutral-800 hover:text-white"
-                        title="Previous image"
+                        className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 hover:text-white hover:bg-neutral-800 transition"
+                        title="Previous image ([)"
                       >
-                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <ArrowLeft className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => {
                           const nextIdx = (activeIndex + 1) % files.length;
                           setActiveFile(files[nextIdx].id);
                         }}
-                        className="p-1 rounded bg-neutral-900 border border-neutral-800 hover:text-white"
-                        title="Next image"
+                        className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 hover:text-white hover:bg-neutral-800 transition"
+                        title="Next image (])"
                       >
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
 
                     <button
                       onClick={() => setShowKeyboardHelp(true)}
-                      className="hover:text-neutral-300 flex items-center gap-1 font-mono text-[11px]"
+                      className="hover:text-neutral-300 flex items-center gap-1 font-mono text-[11px] text-neutral-400 cursor-pointer"
                     >
+                      <HelpCircle className="w-3.5 h-3.5" />
                       <span>Shortcuts [?]</span>
                     </button>
                   </div>
                 </div>
 
-                {/* 3-Column Desktop Grid / Responsive Adaptive Views */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  
-                  {/* COLUMN 1: File Browser & Batch Drawer (col-span-3 on desktop) */}
-                  <aside className={`lg:col-span-3 flex flex-col gap-4 ${mobileSection === 'queue' ? 'block' : 'hidden lg:flex'}`}>
+                {/* 2. MOBILE LAYOUT (< 768px): Single active column with touch-optimized components */}
+                <div className="md:hidden flex flex-col gap-4">
+                  {mobileSection === 'queue' && (
+                    <div className="flex flex-col gap-4">
+                      <Dropzone />
+                      <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-3">
+                        <ImageGallery />
+                      </div>
+                    </div>
+                  )}
+
+                  {mobileSection === 'canvas' && activeFile && (
+                    <div className="flex flex-col gap-4">
+                      <ImageCanvasPreview file={activeFile} />
+
+                      {/* Sub-Tabs for Mobile Inspector */}
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto">
+                          <button
+                            onClick={() => setActiveTab('inspector')}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-target ${
+                              activeTab === 'inspector' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-400" />
+                            Metadata
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('privacy')}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-target ${
+                              activeTab === 'privacy' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                            Privacy
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('workflow')}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-target ${
+                              activeTab === 'workflow' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                            Workflow
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('hex')}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-target ${
+                              activeTab === 'hex' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-neutral-200'
+                            }`}
+                          >
+                            <Binary className="w-3.5 h-3.5 text-amber-400" />
+                            Hex
+                          </button>
+                        </div>
+
+                        {activeTab === 'inspector' && <MetadataExplorer fileId={activeFile.id} />}
+                        {activeTab === 'privacy' && <PrivacyAuditor fileId={activeFile.id} />}
+                        {activeTab === 'workflow' && <AIWorkflowDetect workflow={activeFile.aiWorkflow} />}
+                        {activeTab === 'hex' && (
+                          <RawHexViewer
+                            hexData={activeFile.rawHexSample}
+                            fileName={activeFile.name}
+                            fileSize={activeFile.size}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {mobileSection === 'privacy' && activeFile && (
+                    <PrivacyAuditor fileId={activeFile.id} />
+                  )}
+
+                  {mobileSection === 'seo' && activeFile && (
+                    <div className="flex flex-col gap-4">
+                      <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
+                        <AIGeneratorPanel fileId={activeFile.id} />
+                      </div>
+                      <SeoPreviewCard file={activeFile} />
+                      <SitemapExport />
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. TABLET LAYOUT (768px - 1199px / md to xl): 2-Column Split Workstation */}
+                <div className="hidden md:grid xl:hidden grid-cols-12 gap-4">
+                  {/* Left Column (5 cols): Filmstrip & Interactive Canvas Preview */}
+                  <div className="col-span-5 flex flex-col gap-4">
+                    <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
+                      <ImageGallery />
+                    </div>
+                    {activeFile && (
+                      <ImageCanvasPreview file={activeFile} />
+                    )}
+                  </div>
+
+                  {/* Right Column (7 cols): Tabbed Unified Inspector */}
+                  <div className="col-span-7 flex flex-col gap-4">
+                    {/* Tablet Subtabs */}
+                    <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-xl text-xs font-semibold overflow-x-auto">
+                      <button
+                        onClick={() => setTabletInspectorTab('metadata')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap ${
+                          tabletInspectorTab === 'metadata' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Metadata</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTabletInspectorTab('privacy')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap ${
+                          tabletInspectorTab === 'privacy' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <Shield className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Privacy</span>
+                        {activeFile?.privacyReport.hasGps && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setTabletInspectorTab('seo')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap ${
+                          tabletInspectorTab === 'seo' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        <span>AI / SEO</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTabletInspectorTab('workflow')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap ${
+                          tabletInspectorTab === 'workflow' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                        <span>AI Graph</span>
+                      </button>
+
+                      <button
+                        onClick={() => setTabletInspectorTab('hex')}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap ${
+                          tabletInspectorTab === 'hex' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <Binary className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Hex</span>
+                      </button>
+                    </div>
+
+                    {/* Tablet Tab Panels */}
+                    {activeFile && (
+                      <div className="flex flex-col gap-4">
+                        {tabletInspectorTab === 'metadata' && (
+                          <MetadataExplorer fileId={activeFile.id} />
+                        )}
+
+                        {tabletInspectorTab === 'privacy' && (
+                          <PrivacyAuditor fileId={activeFile.id} />
+                        )}
+
+                        {tabletInspectorTab === 'seo' && (
+                          <div className="flex flex-col gap-4">
+                            <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
+                              <AIGeneratorPanel fileId={activeFile.id} />
+                            </div>
+                            <SeoPreviewCard file={activeFile} />
+                            <SitemapExport />
+                          </div>
+                        )}
+
+                        {tabletInspectorTab === 'workflow' && (
+                          <AIWorkflowDetect workflow={activeFile.aiWorkflow} />
+                        )}
+
+                        {tabletInspectorTab === 'hex' && (
+                          <RawHexViewer
+                            hexData={activeFile.rawHexSample}
+                            fileName={activeFile.name}
+                            fileSize={activeFile.size}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. DESKTOP EXPERIENCE (≥ 1200px / xl / 2xl): 3-Column Studio Workstation */}
+                <div className="hidden xl:grid grid-cols-12 gap-5">
+                  {/* COLUMN 1: File Browser & Batch Drawer (col-span-3) */}
+                  <aside className="col-span-3 flex flex-col gap-4">
                     <Dropzone />
-                    <div className="p-3 sm:p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800 flex flex-col gap-3">
+                    <div className="p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
                       <ImageGallery />
                     </div>
                   </aside>
 
-                  {/* COLUMN 2: Interactive Canvas & Dynamic Inspector (col-span-5 on desktop) */}
-                  <section className={`lg:col-span-5 flex flex-col gap-4 ${mobileSection === 'canvas' ? 'block' : 'hidden lg:flex'}`}>
+                  {/* COLUMN 2: Interactive Canvas & Dynamic Inspector (col-span-5) */}
+                  <section className="col-span-5 flex flex-col gap-4">
                     {activeFile && (
                       <>
                         <ImageCanvasPreview file={activeFile} />
@@ -345,7 +538,7 @@ export default function MetaForgeStudio() {
                           <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto">
                             <button
                               onClick={() => setActiveTab('inspector')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                                 activeTab === 'inspector'
                                   ? 'bg-neutral-800 text-white shadow-xs'
                                   : 'text-neutral-400 hover:text-neutral-200'
@@ -357,7 +550,7 @@ export default function MetaForgeStudio() {
 
                             <button
                               onClick={() => setActiveTab('privacy')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                                 activeTab === 'privacy'
                                   ? 'bg-neutral-800 text-white shadow-xs'
                                   : 'text-neutral-400 hover:text-neutral-200'
@@ -372,7 +565,7 @@ export default function MetaForgeStudio() {
 
                             <button
                               onClick={() => setActiveTab('workflow')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                                 activeTab === 'workflow'
                                   ? 'bg-neutral-800 text-white shadow-xs'
                                   : 'text-neutral-400 hover:text-neutral-200'
@@ -387,7 +580,7 @@ export default function MetaForgeStudio() {
 
                             <button
                               onClick={() => setActiveTab('hex')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                                 activeTab === 'hex'
                                   ? 'bg-neutral-800 text-white shadow-xs'
                                   : 'text-neutral-400 hover:text-neutral-200'
@@ -423,20 +616,16 @@ export default function MetaForgeStudio() {
                     )}
                   </section>
 
-                  {/* COLUMN 3 / Responsive Privacy & SEO Views (col-span-4 on desktop) */}
-                  <aside className={`lg:col-span-4 flex flex-col gap-4 ${
-                    mobileSection === 'privacy' || mobileSection === 'seo' ? 'block' : 'hidden lg:flex'
-                  }`}>
+                  {/* COLUMN 3: Privacy & SEO Views (col-span-4) */}
+                  <aside className="col-span-4 flex flex-col gap-4">
                     {activeFile && (
                       <>
-                        {/* Privacy Auditor (Shown on desktop, or mobile 'privacy' tab) */}
-                        <div className={mobileSection === 'seo' ? 'hidden lg:block' : 'block'}>
-                          <PrivacyAuditor fileId={activeFile.id} />
-                        </div>
+                        {/* Privacy Auditor */}
+                        <PrivacyAuditor fileId={activeFile.id} />
 
-                        {/* SEO Studio & Simulators (Shown on desktop, or mobile 'seo' tab) */}
-                        <div className={`flex flex-col gap-4 ${mobileSection === 'privacy' ? 'hidden lg:flex' : 'flex'}`}>
-                          <div className="p-3 sm:p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
+                        {/* SEO Studio & Simulators */}
+                        <div className="flex flex-col gap-4">
+                          <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
                             <AIGeneratorPanel fileId={activeFile.id} />
                           </div>
 

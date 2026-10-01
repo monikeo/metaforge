@@ -59,8 +59,11 @@ export default function TagEditorModal({
   const suggestions = COMMON_TAG_SUGGESTIONS[currentSection] || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <div>
@@ -78,7 +81,10 @@ export default function TagEditorModal({
               </p>
             )}
           </div>
-          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-white rounded">
+          <button 
+            onClick={onClose} 
+            className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -98,7 +104,7 @@ export default function TagEditorModal({
                         setCurrentSection(s);
                         setCurrentKey('');
                       }}
-                      className={`py-1.5 px-2 rounded-xl text-xs font-bold uppercase transition ${
+                      className={`py-2 px-2 rounded-xl text-xs font-bold uppercase transition touch-target sm:min-h-0 sm:min-w-0 ${
                         currentSection === s
                           ? 'bg-purple-600 text-white'
                           : 'bg-neutral-950 border border-neutral-800 text-neutral-400 hover:text-neutral-200'
@@ -118,18 +124,18 @@ export default function TagEditorModal({
                   placeholder="e.g. CopyrightNotice, Artist, Keywords..."
                   value={currentKey}
                   onChange={(e) => setCurrentKey(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500"
+                  className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                 />
 
                 {/* Quick Preset Tag Suggestions */}
-                <div className="flex flex-wrap items-center gap-1 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   <span className="text-[10px] text-neutral-500 font-mono">Suggested:</span>
                   {suggestions.slice(0, 5).map((sugg) => (
                     <button
                       key={sugg}
                       type="button"
                       onClick={() => setCurrentKey(sugg)}
-                      className="px-2 py-0.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-[10px] font-mono text-neutral-300 transition"
+                      className="px-2 py-1 rounded-md bg-neutral-800 hover:bg-neutral-700 text-[10px] font-mono text-neutral-300 transition"
                     >
                       {sugg}
                     </button>
@@ -151,18 +157,18 @@ export default function TagEditorModal({
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-neutral-800">
+          <div className="flex justify-end items-center gap-2 pt-2 border-t border-neutral-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-xs text-neutral-400 hover:text-white"
+              className="px-4 py-2 text-xs text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!currentKey.trim()}
-              className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center gap-1.5 transition"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               {isNew ? 'Create Tag' : 'Save Tag'}

@@ -86,7 +86,7 @@ export default function BatchJobsView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-6 p-4 sm:p-6 max-w-7xl mx-auto w-full">
+    <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
@@ -102,7 +102,7 @@ export default function BatchJobsView() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => startNewBatchJob('Batch GPS Strip Queue', 'STRIP_GPS')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0"
           >
             <MapPinOff className="w-3.5 h-3.5 text-rose-400" />
             Run GPS Scrub Job
@@ -110,7 +110,7 @@ export default function BatchJobsView() {
 
           <button
             onClick={() => startNewBatchJob('Social OPSEC Batch Sanitize', 'SANITIZE_SOCIAL')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
             Run Social Sanitize

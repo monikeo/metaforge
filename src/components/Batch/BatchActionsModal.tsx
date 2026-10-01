@@ -53,8 +53,11 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-xl rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+      <div className="w-full sm:max-w-xl rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
           <div className="flex items-center gap-2">
@@ -68,7 +71,10 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-white rounded">
+          <button 
+            onClick={onClose} 
+            className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -77,7 +83,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
         <div className="flex items-center gap-1 p-1 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-semibold">
           <button
             onClick={() => setActiveTab('metadata')}
-            className={`flex-1 py-1.5 rounded-lg transition ${
+            className={`flex-1 py-2 sm:py-1.5 rounded-lg transition touch-target sm:min-h-0 ${
               activeTab === 'metadata' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
             }`}
           >
@@ -85,7 +91,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
           </button>
           <button
             onClick={() => setActiveTab('rename')}
-            className={`flex-1 py-1.5 rounded-lg transition ${
+            className={`flex-1 py-2 sm:py-1.5 rounded-lg transition touch-target sm:min-h-0 ${
               activeTab === 'rename' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
             }`}
           >
@@ -103,7 +109,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 placeholder="e.g. © 2026 Acme Corp. All rights reserved."
                 value={copyright}
                 onChange={(e) => setCopyright(e.target.value)}
-                className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
               />
             </div>
 
@@ -114,14 +120,14 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 placeholder="e.g. Lead Photographer"
                 value={artist}
                 onChange={(e) => setArtist(e.target.value)}
-                className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
               />
             </div>
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label className="font-semibold text-neutral-300">Keywords (Comma-separated)</label>
-                <div className="flex items-center gap-2 text-[11px]">
+                <div className="flex items-center gap-3 text-[11px]">
                   <label className="flex items-center gap-1 cursor-pointer">
                     <input
                       type="radio"
@@ -149,22 +155,22 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 placeholder="e.g. editorial, landscape, commercial"
                 value={keywords}
                 onChange={(e) => setKeywords(e.target.value)}
-                className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-neutral-800">
+            <div className="flex justify-end items-center gap-2 pt-3 border-t border-neutral-800">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-neutral-400 hover:text-white"
+                className="px-4 py-2 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleApplyMetadata}
-                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 Apply to {targetCount} Files
@@ -183,7 +189,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
                 placeholder="{title}-{date}-{counter}"
-                className="px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white font-mono focus:outline-none focus:border-purple-500"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white font-mono focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
               />
               <p className="text-[11px] text-neutral-500 font-mono mt-0.5">
                 Available tags: <code className="text-purple-400">{'{title}'}</code>, <code className="text-purple-400">{'{date}'}</code>, <code className="text-purple-400">{'{artist}'}</code>, <code className="text-purple-400">{'{counter}'}</code>
@@ -193,7 +199,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
             {/* Template Preview */}
             <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col gap-1">
               <span className="text-[10px] text-neutral-500 uppercase font-mono">Example Output Preview</span>
-              <span className="font-mono text-purple-300">
+              <span className="font-mono text-purple-300 break-all">
                 {template
                   .replace('{title}', 'shibuya-crossing')
                   .replace('{date}', '2026-10-01')
@@ -202,18 +208,18 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
               </span>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-neutral-800">
+            <div className="flex justify-end items-center gap-2 pt-3 border-t border-neutral-800">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-neutral-400 hover:text-white"
+                className="px-4 py-2 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleApplyRename}
-                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 Rename {targetCount} Files

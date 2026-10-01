@@ -32,26 +32,29 @@ export default function AISettingsModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-lg rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-6 text-neutral-100 flex flex-col gap-5"
+        className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 sm:gap-5 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6"
         role="dialog"
         aria-modal="true"
       >
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+        <div className="flex items-center justify-between border-b border-neutral-800 pb-3 sm:pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
+            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">Google Gemini AI Engine</h2>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-white">Google Gemini AI Engine</h2>
               <p className="text-xs text-neutral-400">Bring Your Own Key (BYOK) — Zero Server Relay</p>
             </div>
           </div>
           <button 
             onClick={() => setIsAiSettingsOpen(false)}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -81,7 +84,7 @@ export default function AISettingsModal() {
                 href="https://aistudio.google.com/app/apikey" 
                 target="_blank" 
                 rel="noreferrer"
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 hover:underline"
+                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 hover:underline min-h-[36px] sm:min-h-0 items-center"
               >
                 Get a free key
                 <ExternalLink className="w-3 h-3" />
@@ -93,12 +96,13 @@ export default function AISettingsModal() {
                 placeholder="AIzaSy..."
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 font-mono pr-10"
+                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 font-mono pr-10 min-h-[44px]"
               />
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 p-1.5 touch-target sm:min-h-0 sm:min-w-0"
+                title={showKey ? 'Hide key' : 'Show key'}
               >
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -116,7 +120,7 @@ export default function AISettingsModal() {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-sm text-neutral-200 focus:outline-none focus:border-purple-500"
+              className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-xs sm:text-sm text-neutral-200 focus:outline-none focus:border-purple-500 min-h-[44px]"
             >
               <option value="gemini-2.5-flash">gemini-2.5-flash (Fastest, latest generation vision — Recommended)</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash (Standard lightweight vision)</option>
@@ -126,7 +130,7 @@ export default function AISettingsModal() {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-neutral-800 pt-4 mt-2">
+        <div className="flex items-center justify-between border-t border-neutral-800 pt-3 sm:pt-4 mt-2">
           {geminiApiKey && (
             <button
               type="button"
@@ -134,7 +138,7 @@ export default function AISettingsModal() {
                 setInputKey('');
                 setApiKey('');
               }}
-              className="text-xs text-rose-400 hover:text-rose-300 hover:underline"
+              className="text-xs text-rose-400 hover:text-rose-300 hover:underline min-h-[40px] flex items-center"
             >
               Clear Key
             </button>
@@ -143,14 +147,14 @@ export default function AISettingsModal() {
             <button
               type="button"
               onClick={() => setIsAiSettingsOpen(false)}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-neutral-300 hover:bg-neutral-800 transition"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-neutral-300 hover:bg-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/20 transition flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Save Configuration
