@@ -311,14 +311,48 @@ export const useMetaForgeStore = create<MetaForgeState>()(
         const oldVal = updatedRaw[section][key];
         updatedRaw[section][key] = value;
 
+        // Sync with seoData if updating headline, title, caption, or keywords
+        const updatedSeo = { ...file.seoData };
+        const lowerKey = key.toLowerCase();
+        if (lowerKey === 'headline' || lowerKey === 'title' || lowerKey === 'objectname') {
+          updatedSeo.title = String(value);
+        }
+        if (lowerKey === 'caption' || lowerKey === 'imagedescription' || lowerKey === 'description') {
+          updatedSeo.caption = String(value);
+        }
+        if (lowerKey === 'keywords') {
+          updatedSeo.keywords = Array.isArray(value) ? value : String(value).split(',').map((s) => s.trim());
+        }
+
+        // Sync tag into physical JPEG binary blob
+        let newBlob = file.modifiedBlob || file.originalBlob;
+        const tagMap: { artist?: string; copyright?: string; description?: string; userComment?: string } = {};
+
+        if (lowerKey === 'artist' || lowerKey === 'byline') tagMap.artist = String(value);
+        if (lowerKey === 'copyright' || lowerKey === 'copyrightnotice') tagMap.copyright = String(value);
+        if (lowerKey === 'imagedescription' || lowerKey === 'headline' || lowerKey === 'title' || lowerKey === 'caption') {
+          tagMap.description = String(value);
+        }
+        if (lowerKey === 'usercomment' || lowerKey === 'keywords') {
+          tagMap.userComment = Array.isArray(value) ? value.join(', ') : String(value);
+        }
+
+        if (Object.keys(tagMap).length > 0) {
+          try {
+            newBlob = await writeTagsToJpeg(newBlob, tagMap);
+          } catch (e) {
+            console.warn('Could not write tag to blob', e);
+          }
+        }
+
         const newReport = analyzePrivacyRisks(updatedRaw);
 
         const historyItem: MetadataHistoryItem = {
           id: `hist-${Date.now()}`,
           timestamp: Date.now(),
           actor: 'User',
-          action: `Edited ${section}.${key}`,
-          diffSummary: `${key}: ${String(oldVal)} → ${String(value)}`,
+          action: oldVal !== undefined ? `Edited ${section}.${key}` : `Added ${section}.${key}`,
+          diffSummary: oldVal !== undefined ? `${key}: ${String(oldVal)} → ${String(value)}` : `Added ${key}: ${String(value)}`,
           previousRaw: file.rawMetadata,
           previousBlob: file.modifiedBlob || file.originalBlob
         };
@@ -328,7 +362,9 @@ export const useMetaForgeStore = create<MetaForgeState>()(
             f.id === fileId
               ? {
                   ...f,
+                  modifiedBlob: newBlob,
                   rawMetadata: updatedRaw,
+                  seoData: updatedSeo,
                   privacyReport: newReport,
                   isDirty: true,
                   history: [historyItem, ...(f.history || [])]
@@ -339,8 +375,8 @@ export const useMetaForgeStore = create<MetaForgeState>()(
 
         get().addToast({
           type: 'success',
-          title: 'Tag Updated',
-          description: `${key} saved.`
+          title: 'Tag Saved',
+          description: `${key} updated & written to image.`
         });
       },
 

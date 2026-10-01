@@ -16,7 +16,8 @@ import {
   MapPin, 
   Tag as TagIcon, 
   Cpu, 
-  ExternalLink 
+  ExternalLink,
+  Plus 
 } from 'lucide-react';
 
 interface MetadataExplorerProps {
@@ -35,6 +36,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
     section: string;
     key: string;
     value: any;
+    isNew?: boolean;
   } | null>(null);
 
   // Section open/close states
@@ -128,7 +130,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+        <div className="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition shrink-0">
           <button
             onClick={() => handleCopy(fullPath, displayValue)}
             title="Copy value"
@@ -162,24 +164,35 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-        <input
-          type="text"
-          placeholder="Filter EXIF, IPTC, XMP tags..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700 transition"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-white"
-          >
-            Clear
-          </button>
-        )}
+      {/* Search Input & Add Tag Button */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <input
+            type="text"
+            placeholder="Filter EXIF, IPTC, XMP tags..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700 transition"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500 hover:text-white"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => setEditingTarget({ section: 'iptc', key: '', value: '', isNew: true })}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shrink-0 shadow-xs"
+          title="Add new EXIF, IPTC, or XMP tag"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add Tag</span>
+        </button>
       </div>
 
       {/* Accordion Categories */}
@@ -368,6 +381,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
       {editingTarget && (
         <TagEditorModal
           isOpen={Boolean(editingTarget)}
+          isNew={editingTarget.isNew}
           section={editingTarget.section}
           tagKey={editingTarget.key}
           initialValue={editingTarget.value}
