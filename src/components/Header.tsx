@@ -13,7 +13,8 @@ import {
   Flame, 
   Shield,
   Layers,
-  Info
+  Info,
+  BookOpen
 } from 'lucide-react';
 
 export default function Header() {
@@ -84,6 +85,19 @@ export default function Header() {
               <Info className="w-3.5 h-3.5 text-purple-400" />
               <span className="hidden sm:inline">About &amp; Docs</span>
               <span className="sm:hidden">About</span>
+            </Link>
+
+            <Link
+              href="/tutorial"
+              className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                pathname === '/tutorial'
+                  ? 'bg-neutral-800 text-white shadow-xs'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-pink-400" />
+              <span className="hidden sm:inline">Tutorial</span>
+              <span className="sm:hidden">Guide</span>
             </Link>
           </nav>
         </div>

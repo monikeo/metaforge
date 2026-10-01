@@ -41,13 +41,21 @@ export default function AboutPage() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Studio
+            <span className="hidden sm:inline">Back to Studio</span>
+            <span className="sm:hidden">Studio</span>
+          </Link>
+
+          <Link
+            href="/tutorial"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition"
+          >
+            Tutorial Guide
           </Link>
 
           <a
@@ -328,6 +336,7 @@ export default function AboutPage() {
           <div className="flex items-center gap-4">
             <Link href="/" className="hover:text-white transition">Studio</Link>
             <Link href="/about" className="hover:text-white transition">Architecture</Link>
+            <Link href="/tutorial" className="hover:text-white transition">Tutorial</Link>
             <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-white transition">GitHub</a>
           </div>
         </footer>
