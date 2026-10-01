@@ -1,5 +1,5 @@
 {
-  "name": "metaforge-tmp",
+  "name": "metaforge",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,12 +9,22 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^2.25.0",
+    "clsx": "^2.1.1",
+    "exifr": "^7.1.3",
+    "file-saver": "^2.0.5",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.49.0",
     "next": "16.3.8",
+    "piexifjs": "^1.0.6",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.7.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

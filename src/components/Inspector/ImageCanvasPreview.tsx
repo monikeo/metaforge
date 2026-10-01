@@ -1,0 +1,147 @@
+'use client';
+
+import React, { useState, useRef } from 'react';
+import { MetaFile } from '@/lib/types';
+import { useMetaForgeStore } from '@/lib/store';
+import { 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCcw, 
+  Download 
+} from 'lucide-react';
+
+interface ImageCanvasPreviewProps {
+  file: MetaFile;
+}
+
+export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
+  const { exportSingle } = useMetaForgeStore();
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  const handleZoomIn = () => setScale((s) => Math.min(s + 0.25, 4));
+  const handleZoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
+  const handleReset = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale <= 1) return;
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y
+    });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+      {/* Canvas Top Bar */}
+      <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs font-bold text-white truncate max-w-xs">{file.name}</span>
+          {file.isDirty ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+              MODIFIED IN MEMORY
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-800 text-neutral-400 border border-neutral-700 shrink-0">
+              ORIGINAL
+            </span>
+          )}
+        </div>
+
+        {/* Zoom & Download Toolbar */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[11px] font-mono text-neutral-400 w-10 text-center">
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleReset}
+            title="Reset Zoom & Pan"
+            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 ml-1"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => exportSingle(file.id)}
+            className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-400" />
+            Download
+          </button>
+        </div>
+      </div>
+
+      {/* Interactive Pan/Zoom Canvas */}
+      <div
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className={`relative w-full h-[360px] sm:h-[420px] rounded-xl overflow-hidden bg-black/80 flex items-center justify-center select-none ${
+          scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+        }`}
+        style={{
+          backgroundImage: `
+            linear-gradient(45deg, #171717 25%, transparent 25%), 
+            linear-gradient(-45deg, #171717 25%, transparent 25%), 
+            linear-gradient(45deg, transparent 75%, #171717 75%), 
+            linear-gradient(-45deg, transparent 75%, #171717 75%)
+          `,
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
+        }}
+      >
+        <div
+          className="transition-transform duration-75 ease-out"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transformOrigin: 'center center'
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={file.thumbnailUrl}
+            alt={file.name}
+            className="max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
+          />
+        </div>
+
+        {/* Dimension & Format Overlay Badge */}
+        <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-xs border border-neutral-800 text-[10px] font-mono text-neutral-300">
+          <span>{file.type.replace('image/', '').toUpperCase()}</span>
+          <span>•</span>
+          <span>{file.width && file.height ? `${file.width}×${file.height} px` : 'N/A'}</span>
+          <span>•</span>
+          <span>{(file.size / 1024).toFixed(1)} KB</span>
+        </div>
+      </div>
+    </div>
+  );
+}
