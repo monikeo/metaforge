@@ -84,7 +84,7 @@ export default function AISettingsModal() {
                 href="https://aistudio.google.com/app/apikey" 
                 target="_blank" 
                 rel="noreferrer"
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 hover:underline min-h-[36px] sm:min-h-0 items-center"
+                className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 hover:underline min-h-[36px] sm:min-h-0"
               >
                 Get a free key
                 <ExternalLink className="w-3 h-3" />

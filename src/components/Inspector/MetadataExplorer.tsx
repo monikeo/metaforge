@@ -17,7 +17,8 @@ import {
   Tag as TagIcon, 
   Cpu, 
   ExternalLink,
-  Plus 
+  Plus,
+  Compass
 } from 'lucide-react';
 
 interface MetadataExplorerProps {
@@ -275,26 +276,58 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
             <div className="p-2.5 flex flex-col gap-2">
               {lat !== undefined && lon !== undefined ? (
                 <>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-rose-950/30 border border-rose-500/20 text-xs">
-                    <span className="font-mono text-rose-200">
-                      {lat.toFixed(6)}, {lon.toFixed(6)}
-                    </span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/20 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-rose-200 font-semibold select-all">
+                        {lat.toFixed(6)}, {lon.toFixed(6)}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleCopy('gps.coordinates', `${lat.toFixed(6)}, ${lon.toFixed(6)}`)}
+                          title="Copy coordinates"
+                          className="px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-mono flex items-center gap-1 transition cursor-pointer"
+                        >
+                          {copiedKey === 'gps.coordinates' ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => stripGps(file.id)}
+                          className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition cursor-pointer"
+                        >
+                          Remove GPS
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 pt-1 border-t border-rose-500/10 text-[11px]">
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 hover:underline"
+                        className="text-blue-400 hover:text-blue-300 flex items-center gap-1 hover:underline font-medium"
                       >
-                        View on Map
+                        Google Maps
                         <ExternalLink className="w-3 h-3" />
                       </a>
-                      <button
-                        onClick={() => stripGps(file.id)}
-                        className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition"
+                      <span className="text-neutral-600">•</span>
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 hover:underline font-medium"
                       >
-                        Remove GPS
-                      </button>
+                        <Compass className="w-3 h-3" />
+                        OpenStreetMap
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     </div>
                   </div>
 

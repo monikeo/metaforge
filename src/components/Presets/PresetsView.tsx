@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
   Sliders, 
@@ -12,8 +12,11 @@ import {
   Globe, 
   Camera, 
   ShoppingBag,
-  X
+  X,
+  Download,
+  Upload
 } from 'lucide-react';
+import { saveAs } from 'file-saver';
 
 export default function PresetsView() {
   const { 
@@ -22,9 +25,11 @@ export default function PresetsView() {
     activeFileId, 
     applyPreset, 
     createPreset, 
-    deletePreset 
+    deletePreset,
+    addToast
   } = useMetaForgeStore();
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<'active' | 'all'>('all');
 
@@ -72,10 +77,76 @@ export default function PresetsView() {
     setArtist('');
     setCopyright('');
     setKeywords('');
+    addToast({
+      type: 'success',
+      title: 'Preset Saved',
+      description: `Created preset "${name.trim()}".`
+    });
+  };
+
+  const handleExportPresets = () => {
+    const dataStr = JSON.stringify(presets, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+    saveAs(blob, `metaforge-presets-${new Date().toISOString().split('T')[0]}.json`);
+    addToast({
+      type: 'info',
+      title: 'Presets Exported',
+      description: `Exported ${presets.length} presets to JSON.`
+    });
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        const importedArray = Array.isArray(parsed) ? parsed : [parsed];
+        let count = 0;
+        importedArray.forEach((p: any) => {
+          if (p.name && p.category) {
+            createPreset({
+              name: p.name,
+              category: p.category,
+              description: p.description || 'Imported configuration',
+              tags: p.tags || {},
+              stripGps: Boolean(p.stripGps),
+              stripSerials: Boolean(p.stripSerials),
+              filenameTemplate: p.filenameTemplate || '{title}-{counter}'
+            });
+            count++;
+          }
+        });
+        addToast({
+          type: 'success',
+          title: 'Presets Imported',
+          description: `Successfully imported ${count} preset profile(s).`
+        });
+      } catch {
+        addToast({
+          type: 'error',
+          title: 'Import Failed',
+          description: 'Invalid JSON presets file format.'
+        });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
     <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
+      {/* Hidden file input for presets JSON import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
@@ -108,13 +179,33 @@ export default function PresetsView() {
             </button>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/20 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Preset
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-neutral-850 hover:bg-neutral-800 text-neutral-300 border border-neutral-700/80 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+              title="Import Presets from JSON"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Import</span>
+            </button>
+
+            <button
+              onClick={handleExportPresets}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-neutral-850 hover:bg-neutral-800 text-neutral-300 border border-neutral-700/80 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+              title="Export All Presets as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/20 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Preset
+            </button>
+          </div>
         </div>
       </div>
 

@@ -12,7 +12,10 @@ import {
   Trash2, 
   Sparkles, 
   CheckCircle2,
-  ExternalLink 
+  ExternalLink,
+  Copy,
+  Check,
+  Compass
 } from 'lucide-react';
 
 interface PrivacyAuditorProps {
@@ -22,6 +25,7 @@ interface PrivacyAuditorProps {
 export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
   const { files, stripGps, sanitizeForSocial, stripAllMetadata } = useMetaForgeStore();
   const file = files.find((f) => f.id === fileId);
+  const [copiedCoords, setCopiedCoords] = React.useState(false);
 
   if (!file) return null;
 
@@ -139,23 +143,61 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
         )}
 
         {report.hasGps && lat !== undefined && lon !== undefined && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-rose-950/30 border border-rose-500/20 text-xs">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
-              <div>
-                <span className="font-bold text-rose-200">Exact GPS Coordinates: </span>
-                <span className="font-mono text-rose-300 font-semibold">{lat.toFixed(6)}, {lon.toFixed(6)}</span>
+          <div className="flex flex-col gap-2 p-3 rounded-xl bg-rose-950/30 border border-rose-500/20 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+                <div>
+                  <span className="font-bold text-rose-200">Exact GPS Coordinates: </span>
+                  <span className="font-mono text-rose-300 font-semibold">{lat.toFixed(6)}, {lon.toFixed(6)}</span>
+                </div>
               </div>
+
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                  setCopiedCoords(true);
+                  setTimeout(() => setCopiedCoords(false), 1800);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] font-mono transition self-start sm:self-auto cursor-pointer"
+                title="Copy coordinates"
+              >
+                {copiedCoords ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-neutral-400" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
             </div>
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 hover:underline font-semibold shrink-0"
-            >
-              <span>Preview on Map</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+
+            <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-rose-500/10 text-[11px]">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline font-semibold"
+              >
+                <span>Google Maps</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <span className="text-neutral-600">•</span>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:underline font-semibold"
+              >
+                <Compass className="w-3 h-3" />
+                <span>OpenStreetMap</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         )}
       </div>

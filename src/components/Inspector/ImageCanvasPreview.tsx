@@ -236,7 +236,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           >
             <History className="w-3.5 h-3.5 text-purple-400" />
             {file.history && file.history.length > 0 && (
-              <span className="absolute 1.5 top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
             )}
           </button>
 

@@ -1,18 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { BatchJob } from '@/lib/types';
 import { 
   Cpu, 
   MapPinOff, 
-  ShieldCheck 
+  ShieldCheck, 
+  Download, 
+  Trash2
 } from 'lucide-react';
 
 export default function BatchJobsView() {
-  const { files } = useMetaForgeStore();
+  const { 
+    files, 
+    stripAllGps, 
+    batchSanitizeForSocial, 
+    exportAllZip, 
+    addToast 
+  } = useMetaForgeStore();
 
-  // Local active and historical batch jobs (lazy initialization for pure render)
+  const activeTimersRef = useRef<Set<NodeJS.Timeout>>(new Set());
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    const timers = activeTimersRef.current;
+    return () => {
+      timers.forEach((t) => clearInterval(t));
+      timers.clear();
+    };
+  }, []);
+
+  // Local active and historical batch jobs
   const [jobs, setJobs] = useState<BatchJob[]>(() => {
     const now = Date.now();
     return [
@@ -43,8 +62,8 @@ export default function BatchJobsView() {
     ];
   });
 
-  const startNewBatchJob = (name: string, type: BatchJob['type']) => {
-    const totalCount = files.length || 250;
+  const startNewBatchJob = async (name: string, type: BatchJob['type']) => {
+    const totalCount = files.length || 100;
     const newJob: BatchJob = {
       id: `job-${Date.now()}`,
       name,
@@ -60,13 +79,29 @@ export default function BatchJobsView() {
 
     setJobs((prev) => [newJob, ...prev]);
 
-    // Simulate progress in increments
+    // If files are loaded in studio, trigger real store action
+    if (files.length > 0) {
+      try {
+        if (type === 'STRIP_GPS') {
+          await stripAllGps();
+        } else if (type === 'SANITIZE_SOCIAL') {
+          await batchSanitizeForSocial();
+        } else if (type === 'EXPORT_ZIP') {
+          await exportAllZip();
+        }
+      } catch (err: any) {
+        console.error('Batch job error:', err);
+      }
+    }
+
+    // Animate progress to completion
     let comp = 0;
     const interval = setInterval(() => {
-      comp += Math.floor(Math.random() * 25) + 15;
+      comp += Math.max(1, Math.floor(totalCount / 5));
       if (comp >= totalCount) {
         comp = totalCount;
         clearInterval(interval);
+        activeTimersRef.current.delete(interval);
         setJobs((prev) =>
           prev.map((j) =>
             j.id === newJob.id
@@ -74,6 +109,11 @@ export default function BatchJobsView() {
               : j
           )
         );
+        addToast({
+          type: 'success',
+          title: 'Batch Pipeline Finished',
+          description: `${name} processed ${totalCount} image(s) successfully.`
+        });
       } else {
         const prog = Math.round((comp / totalCount) * 100);
         setJobs((prev) =>
@@ -82,7 +122,18 @@ export default function BatchJobsView() {
           )
         );
       }
-    }, 300);
+    }, 200);
+
+    activeTimersRef.current.add(interval);
+  };
+
+  const handleClearCompleted = () => {
+    setJobs((prev) => prev.filter((j) => j.status === 'RUNNING'));
+    addToast({
+      type: 'info',
+      title: 'Queue Cleaned',
+      description: 'Cleared completed batch job records.'
+    });
   };
 
   return (
@@ -102,22 +153,40 @@ export default function BatchJobsView() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => startNewBatchJob('Batch GPS Strip Queue', 'STRIP_GPS')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
             <MapPinOff className="w-3.5 h-3.5 text-rose-400" />
-            Run GPS Scrub Job
+            Strip GPS
           </button>
 
           <button
             onClick={() => startNewBatchJob('Social OPSEC Batch Sanitize', 'SANITIZE_SOCIAL')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            Run Social Sanitize
+            Social Sanitize
           </button>
+
+          <button
+            onClick={() => startNewBatchJob('Package All as Compressed ZIP', 'EXPORT_ZIP')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Batch ZIP Export
+          </button>
+
+          {jobs.some((j) => j.status === 'COMPLETED') && (
+            <button
+              onClick={handleClearCompleted}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 border border-transparent hover:border-neutral-700 transition cursor-pointer"
+              title="Clear completed tasks"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Clear Done</span>
+            </button>
+          )}
         </div>
       </div>
-
       {/* Jobs Queue List */}
       <div className="flex flex-col gap-3">
         {jobs.map((job) => {

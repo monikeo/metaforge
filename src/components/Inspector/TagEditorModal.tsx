@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Plus } from 'lucide-react';
 
 interface TagEditorModalProps {
@@ -33,15 +33,44 @@ export default function TagEditorModal({
   const [val, setVal] = useState(
     typeof initialValue === 'object' ? JSON.stringify(initialValue, null, 2) : String(initialValue ?? '')
   );
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  if (!isOpen) return null;
+  const [prevProps, setPrevProps] = useState({
+    isOpen,
+    initialSection,
+    initialKey,
+    initialValue
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  if (
+    prevProps.isOpen !== isOpen ||
+    prevProps.initialSection !== initialSection ||
+    prevProps.initialKey !== initialKey ||
+    prevProps.initialValue !== initialValue
+  ) {
+    setPrevProps({ isOpen, initialSection, initialKey, initialValue });
+    if (isOpen) {
+      setCurrentSection(initialSection || 'iptc');
+      setCurrentKey(initialKey || '');
+      setVal(
+        typeof initialValue === 'object'
+          ? JSON.stringify(initialValue, null, 2)
+          : String(initialValue ?? '')
+      );
+    }
+  }
+
+  // Auto-focus input on open
+  useEffect(() => {
+    if (isOpen) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  const commitSave = useCallback(() => {
     if (!currentKey.trim()) return;
-
     let parsed: any = val;
-    // Attempt parsing JSON if it looks like an object or array
     if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
       try {
         parsed = JSON.parse(val);
@@ -54,7 +83,39 @@ export default function TagEditorModal({
 
     onSave(currentSection, currentKey.trim(), parsed);
     onClose();
+  }, [currentKey, val, onSave, currentSection, onClose]);
+
+  // Global Esc & Ctrl+Enter keyboard listeners
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (currentKey.trim()) {
+          commitSave();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, currentKey, commitSave]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    commitSave();
   };
+
+  const detectedType = (() => {
+    const trimmed = val.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) return 'JSON';
+    if (!isNaN(Number(trimmed)) && trimmed !== '') return 'Number';
+    return 'String';
+  })();
 
   const suggestions = COMMON_TAG_SUGGESTIONS[currentSection] || [];
 
@@ -146,15 +207,34 @@ export default function TagEditorModal({
           )}
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-neutral-400">Tag Value</label>
+            <div className="flex items-center justify-between text-xs">
+              <label className="font-medium text-neutral-400">Tag Value</label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-neutral-500 font-mono">Format:</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold ${
+                  detectedType === 'JSON'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : detectedType === 'Number'
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
+                }`}>
+                  {detectedType}
+                </span>
+              </div>
+            </div>
             <textarea
+              ref={inputRef}
               rows={4}
               required
               value={val}
               onChange={(e) => setVal(e.target.value)}
               placeholder="Enter tag string, number, or JSON..."
-              className="w-full p-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500"
+              className="w-full p-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500 transition"
             />
+            <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono mt-0.5">
+              <span>Press <kbd className="px-1 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">Ctrl+Enter</kbd> to save</span>
+              <span><kbd className="px-1 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">Esc</kbd> to cancel</span>
+            </div>
           </div>
 
           <div className="flex justify-end items-center gap-2 pt-2 border-t border-neutral-800">
@@ -168,7 +248,7 @@ export default function TagEditorModal({
             <button
               type="submit"
               disabled={!currentKey.trim()}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
             >
               <Check className="w-3.5 h-3.5" />
               {isNew ? 'Create Tag' : 'Save Tag'}
