@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { SeoMetadata } from './types';
 import { DEFAULT_GEMINI_MODEL } from './ai-models';
+import { encodeCanvas } from './canvas-encoder';
+import { stripAllMetadataFromBlob } from './metadata-writer';
 
 export function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -22,7 +24,7 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
     const img = new Image();
     const timer = setTimeout(() => { URL.revokeObjectURL(url); reject(new Error('Image decoding timed out.')); }, 20000);
 
-    img.onload = () => {
+    img.onload = async () => {
       clearTimeout(timer); URL.revokeObjectURL(url);
       try {
       let { naturalWidth: width, naturalHeight: height } = img;
@@ -46,9 +48,8 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
         return;
       }
       ctx.drawImage(img, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-      const base64Data = dataUrl.split(',')[1];
-      resolve({ base64Data, mimeType: 'image/jpeg' });
+      const encoded = await stripAllMetadataFromBlob(await encodeCanvas(canvas, 'image/jpeg', 0.88));
+      resolve({ base64Data: bufferToBase64(await encoded.arrayBuffer()), mimeType: encoded.type });
       } catch (error) { reject(error); }
     };
 

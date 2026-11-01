@@ -15,7 +15,7 @@ import {
   MapPinOff, 
   GitCompare 
 } from 'lucide-react';
-import { createSampleExifJpeg, createSampleAiPng } from '@/lib/sample-data';
+import { createSampleExifImage, createSampleAiPng } from '@/lib/sample-data';
 
 export default function DashboardView() {
   const { 
@@ -23,6 +23,8 @@ export default function DashboardView() {
     setCurrentView, 
     setActiveFile, 
     addFiles, 
+    addToast,
+    isProcessing,
     stripAllGps, 
     batchSanitizeForSocial 
   } = useMetaForgeStore();
@@ -34,7 +36,8 @@ export default function DashboardView() {
   const gpsExposed = files.filter((f) => f.privacyReport.hasGps).length;
 
   const handleLoadSampleDemo = async () => {
-    const sample1 = await createSampleExifJpeg({
+    try {
+    const sample1 = await createSampleExifImage({
       title: 'Shibuya Crossing Night Street Photography',
       cameraMake: 'Sony',
       cameraModel: 'ILCE-7M4 (A7 IV)',
@@ -48,6 +51,7 @@ export default function DashboardView() {
     });
     const sample2 = await createSampleAiPng();
     await addFiles([sample1, sample2]);
+    } catch (error) { addToast({ type: 'error', title: 'Samples Could Not Load', description: error instanceof Error ? error.message : 'Try loading images from your device.' }); }
   };
 
   return (
@@ -68,6 +72,7 @@ export default function DashboardView() {
           {total === 0 && (
             <button
               onClick={handleLoadSampleDemo}
+              disabled={isProcessing}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />

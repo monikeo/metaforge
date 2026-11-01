@@ -1,4 +1,5 @@
 import piexif from 'piexifjs';
+import { encodeCanvas } from './canvas-encoder';
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 const text = (bytes: Uint8Array) => decoder.decode(bytes);
@@ -227,7 +228,7 @@ export async function sanitizeViaCanvas(blob: Blob, mimeType = 'image/png', qual
     const timer = setTimeout(() => { URL.revokeObjectURL(url); reject(new Error('Image decoding timed out.')); }, 20000);
     const cleanup = () => { clearTimeout(timer); URL.revokeObjectURL(url); };
     image.onerror = () => { cleanup(); reject(new Error('This browser cannot decode this format. Convert it to PNG or JPEG first.')); };
-    image.onload = () => {
+    image.onload = async () => {
       cleanup();
       try {
         if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 64000000) throw new Error('Browser conversion supports images up to 64 megapixels.');
@@ -235,7 +236,7 @@ export async function sanitizeViaCanvas(blob: Blob, mimeType = 'image/png', qual
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Image conversion is unavailable. No changes were made.');
         context.drawImage(image, 0, 0);
-        canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Image conversion failed. No changes were made.')), mimeType, quality);
+        resolve(await encodeCanvas(canvas, mimeType, quality));
       } catch (error) { reject(error); }
     };
     image.src = url;

@@ -3,7 +3,7 @@
 import React, { useRef, useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { UploadCloud, ShieldCheck, Sparkles, MapPin } from 'lucide-react';
-import { createSampleExifJpeg, createSampleAiPng } from '@/lib/sample-data';
+import { createSampleExifImage, createSampleAiPng } from '@/lib/sample-data';
 
 export default function Dropzone() {
   const { addFiles, addToast, isProcessing } = useMetaForgeStore();
@@ -54,7 +54,8 @@ export default function Dropzone() {
   };
 
   const handleLoadSampleGps = async () => {
-    const sample = await createSampleExifJpeg({
+    try {
+    const sample = await createSampleExifImage({
       title: 'Shibuya Crossing Night Street Photography',
       cameraMake: 'Sony',
       cameraModel: 'ILCE-7M4 (A7 IV)',
@@ -67,11 +68,14 @@ export default function Dropzone() {
       color: '#0369a1'
     });
     await addFiles([sample]);
+    } catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try loading an image from your device.' }); }
   };
 
   const handleLoadSampleAi = async () => {
+    try {
     const sample = await createSampleAiPng();
     await addFiles([sample]);
+    } catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try loading an image from your device.' }); }
   };
 
   return (

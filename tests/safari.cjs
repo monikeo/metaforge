@@ -42,6 +42,11 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   const capabilities=await driver.getCapabilities();
   console.log(`Native ${isIPad?'iPadOS':'macOS'} Safari ${capabilities.get('browserVersion')}`);
   await driver.get(base);
+  console.log('Native canvas formats',await driver.executeAsyncScript(function(done){
+   const canvas=document.createElement('canvas');canvas.width=16;canvas.height=12;canvas.getContext('2d').fillRect(0,0,16,12);
+   const dataUrl=canvas.toDataURL('image/jpeg',0.95);
+   canvas.toBlob(blob=>done({dataUrlHeader:dataUrl.slice(0,64),blobType:blob?.type,blobSize:blob?.size}),'image/jpeg',0.95);
+  }));
   await driver.executeScript('window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)));addEventListener("click",e=>window.__qaClicks.push(e.target.closest("button,a")?.textContent),true);new MutationObserver(()=>{for(const node of document.querySelectorAll("[role=status],[role=alert]")){if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent)}}).observe(document.body,{childList:true,subtree:true})');
   for(const view of [['dashboard','Dashboard','Home'],['compare','Metadata Compare','Compare'],['presets','Presets Manager','Presets'],['jobs','Batch Processing','More'],['studio','Studio Workstation','Studio']])await nav(...view);
   await nav('dashboard','Dashboard','Home');await nav('presets','Presets Manager','Presets');

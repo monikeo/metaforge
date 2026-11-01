@@ -1,9 +1,11 @@
 import piexif from 'piexifjs';
+import { encodeCanvas } from './canvas-encoder';
+import { blobToDataUrl, containerPackets, dataUrlToBlob, pngChunk, writeMetadataToBlob } from './metadata-writer';
 
 /**
- * Creates an in-memory sample JPEG image with embedded EXIF and GPS metadata
+ * Creates a sample with native EXIF/GPS, using PNG if the browser falls back from JPEG.
  */
-export async function createSampleExifJpeg(options: {
+export async function createSampleExifImage(options: {
   title: string;
   cameraMake: string;
   cameraModel: string;
@@ -63,7 +65,7 @@ export async function createSampleExifJpeg(options: {
   ctx.fillText(`GPS: ${options.latitude.toFixed(4)}, ${options.longitude.toFixed(4)}`, 40, 230);
   ctx.fillText(`Artist: ${options.artist}`, 40, 260);
 
-  const baseDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  const encoded = await encodeCanvas(canvas, 'image/jpeg', 0.95);
 
   // 2. Build EXIF & GPS
   const zeroth: Record<number, any> = {};
@@ -98,19 +100,18 @@ export async function createSampleExifJpeg(options: {
 
   const exifObj = { '0th': zeroth, Exif: exif, GPS: gps };
   const exifBytes = piexif.dump(exifObj);
-  const enrichedDataUrl = piexif.insert(exifBytes, baseDataUrl);
-
-  // Convert to File
-  const parts = enrichedDataUrl.split(',');
-  const bstr = atob(parts[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+  let enriched: Blob;
+  if (encoded.type === 'image/jpeg') {
+    enriched = dataUrlToBlob(piexif.insert(exifBytes, await blobToDataUrl(encoded)));
+  } else {
+    const bytes = new Uint8Array(await encoded.arrayBuffer());
+    const nativeExif = pngChunk('eXIf', Uint8Array.from(exifBytes.slice(6), character => character.charCodeAt(0)));
+    const packets = containerPackets(bytes);
+    enriched = new Blob([bytes.subarray(0, 8), ...packets.flatMap((packet, index) => index === 0 ? [packet.packet, nativeExif] : [packet.packet])] as BlobPart[], { type: 'image/png' });
   }
 
-  const safeFilename = options.title.toLowerCase().replace(/[^a-z0-9]/g, '_') + '.jpg';
-  return new File([u8arr], safeFilename, { type: 'image/jpeg' });
+  const safeFilename = options.title.toLowerCase().replace(/[^a-z0-9]/g, '_') + (enriched.type === 'image/jpeg' ? '.jpg' : '.png');
+  return new File([enriched], safeFilename, { type: enriched.type });
 }
 
 export async function createSampleAiPng(): Promise<File> {
@@ -144,11 +145,11 @@ export async function createSampleAiPng(): Promise<File> {
   ctx.fillText('AI Workflow: ComfyUI + SDXL Lightning', 40, 120);
   ctx.fillText('Prompt: Cinematic ultra-detailed rain-slicked Tokyo neon streets', 40, 150);
 
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], 'cyberpunk_shibuya_sdxl.png', { type: 'image/png' });
-      resolve(file);
-    }, 'image/png');
-  });
+  const encoded = await encodeCanvas(canvas);
+  const prompt = {
+    '1': { class_type: 'CLIPTextEncode', inputs: { text: 'Cinematic ultra-detailed rain-slicked Tokyo neon streets' } },
+    '2': { class_type: 'KSampler', inputs: { seed: 7849102, steps: 8, sampler_name: 'euler', scheduler: 'normal', cfg: 2 } }
+  };
+  const sample = await writeMetadataToBlob(encoded, { pngChunks: { prompt: JSON.stringify(prompt) } });
+  return new File([sample], 'cyberpunk_shibuya_sdxl.png', { type: sample.type });
 }

@@ -13,7 +13,9 @@ const reader = require('../src/lib/metadata-reader.ts');
 const {analyzePrivacyRisks} = require('../src/lib/privacy-rules.ts');
 const {buildImageSitemap} = require('../src/lib/sitemap.ts');
 const {workspaceHref,workspaceView} = require('../src/lib/navigation.ts');
-const {classifyGeminiError,parseGeminiSeoResponse} = require('../src/lib/ai-service.ts');
+const {classifyGeminiError,parseGeminiSeoResponse,prepareImageForAi} = require('../src/lib/ai-service.ts');
+const {encodeCanvas} = require('../src/lib/canvas-encoder.ts');
+const {createSampleExifImage,createSampleAiPng} = require('../src/lib/sample-data.ts');
 const {DEFAULT_GEMINI_MODEL,normalizeGeminiModel} = require('../src/lib/ai-models.ts');
 const {useMetaForgeStore:store,safeFilename,validatePreset} = require('../src/lib/store.ts');
 const piexif = require('piexifjs');
@@ -21,6 +23,34 @@ const exifr = require('exifr');
 const fixture = (ext,type) => new File([fs.readFileSync(`${__dirname}/fixtures/image.${ext}`)],`image.${ext}`,{type});
 const tests=[]; const test=(name,run)=>tests.push({name,run});
 let gpsFile;
+
+test('Canvas encoding validates actual bytes and rejects empty or unsupported output',async()=>{
+ const jpeg=fixture('jpg','image/jpeg');
+ const wrongMime=new Blob([jpeg],{type:'image/png'});
+ const normalized=await encodeCanvas({toBlob:callback=>callback(wrongMime)},'image/jpeg');
+ assert.equal(normalized.type,'image/jpeg');
+ await assert.rejects(()=>encodeCanvas({toBlob:callback=>callback(null)}),/could not encode/);
+ await assert.rejects(()=>encodeCanvas({toBlob:callback=>callback(new Blob(['broken']))}),/unsupported image encoding/);
+});
+
+test('PNG codec fallback keeps native sample GPS and sends Gemini the actual preview MIME type',async()=>{
+ const previousDocument=global.document;
+ const png=fixture('png','image/png');
+ const context=new Proxy({createLinearGradient:()=>({addColorStop(){}})},{get:(target,key)=>target[key]||(()=>{})});
+ global.document={createElement:()=>({getContext:()=>context,toBlob:callback=>callback(png)})};
+ try{
+  const sample=await createSampleExifImage({title:'Safari PNG fallback',cameraMake:'Sony',cameraModel:'Camera',lensModel:'Lens',serialNumber:'SAMPLE-SERIAL',artist:'Sample artist',copyright:'Sample copyright',latitude:35.6595,longitude:139.7005,color:'#0369a1'});
+  assert.equal(sample.type,'image/png');assert.match(sample.name,/\.png$/);
+  const native=await exifr.parse(Buffer.from(await sample.arrayBuffer()));
+  assert.equal(native.Make,'Sony');assert.ok(Math.abs(native.latitude-35.6595)<0.000001);
+  const parsed=await reader.parseDeepMetadata(sample);assert.equal(parsed.privacyReport.hasGps,true);
+  const preview=await prepareImageForAi(sample);
+  assert.equal(preview.mimeType,'image/png');assert.deepEqual(Buffer.from(preview.base64Data,'base64'),Buffer.from(await png.arrayBuffer()));
+  const aiSample=await createSampleAiPng();assert.equal(aiSample.type,'image/png');
+  const workflow=(await reader.parseDeepMetadata(aiSample)).aiWorkflow;
+  assert.equal(workflow.type,'ComfyUI');assert.equal(workflow.seed,'7849102');assert.equal(workflow.steps,8);assert.match(workflow.prompt,/Tokyo neon streets/);
+ }finally{if(previousDocument===undefined)delete global.document;else global.document=previousDocument}
+});
 
 test('Gemini model defaults support new projects and reject unknown saved models',()=>{
  assert.equal(normalizeGeminiModel(undefined),DEFAULT_GEMINI_MODEL);
