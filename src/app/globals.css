@@ -200,7 +200,8 @@ body {
 
 /* Keep workstation panes shrinkable without clipping controls or long metadata. */
 :root { color-scheme: dark; }
-html { scrollbar-gutter: stable; }
+/* Keep root scrolling explicit: WebKit otherwise alternates gutter widths after a modal closes at a breakpoint. */
+html { scrollbar-gutter: stable; overflow-y: auto; }
 button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 button:disabled { cursor: not-allowed; opacity: .5; }

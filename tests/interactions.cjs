@@ -133,6 +133,15 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:3100';
     assert.deepEqual(errors, []);
     console.log(`${engine} interaction regressions passed`);
   } catch (error) {
+    console.error('Layout diagnostics', JSON.stringify(await page.evaluate(async () => {
+      const target=document.querySelector('nav[aria-label="Mobile Navigation"] a');
+      const frames=[];
+      for(let n=0;target&&n<8;n++){
+        await new Promise(requestAnimationFrame);
+        frames.push({box:target.getBoundingClientRect().toJSON(),scroll:[scrollX,scrollY],viewport:[innerWidth,innerHeight]});
+      }
+      return {frames,active:document.activeElement?.tagName,animations:document.getAnimations().length};
+    })));
     console.error('Interaction failure state', JSON.stringify(await page.evaluate(() => ({ url: location.href, headings: Array.from(document.querySelectorAll('h1,h2,h3')).map(el => el.textContent), currentLinks: Array.from(document.querySelectorAll('[aria-current="page"]')).map(el => el.textContent), dialogs: Array.from(document.querySelectorAll('[aria-modal="true"]')).map(el=>el.getAttribute('aria-label')) }))));
     await page.screenshot({ path: `tests/${engine}-interaction-failure.png`, fullPage: true }).catch(() => {});
     throw error;

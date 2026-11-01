@@ -42,7 +42,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   const capabilities=await driver.getCapabilities();
   console.log(`Native ${isIPad?'iPadOS':'macOS'} Safari ${capabilities.get('browserVersion')}`);
   await driver.get(base);
-  await driver.executeScript('window.__qaErrors=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)))');
+  await driver.executeScript('window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)));addEventListener("click",e=>window.__qaClicks.push(e.target.closest("button,a")?.textContent),true);new MutationObserver(()=>{for(const node of document.querySelectorAll("[role=status],[role=alert]")){if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent)}}).observe(document.body,{childList:true,subtree:true})');
   for(const view of [['dashboard','Dashboard','Home'],['compare','Metadata Compare','Compare'],['presets','Presets Manager','Presets'],['jobs','Batch Processing','More'],['studio','Studio Workstation','Studio']])await nav(...view);
   await nav('dashboard','Dashboard','Home');await nav('presets','Presets Manager','Presets');
   await driver.navigate().back();await heading('MetaForge SaaS Operations Console');
@@ -105,6 +105,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   fs.writeFileSync(`tests/safari-${isIPad?'ipad':'macos'}.png`,Buffer.from(await driver.takeScreenshot(),'base64'));
   console.log(`PASS native ${isIPad?'iPadOS Simulator':'macOS'} Safari: responsive controls, dialogs and no runtime errors`);
  }catch(error){
+  try{console.error('Safari failure state',await driver.executeScript('return {url:location.href,headings:Array.from(document.querySelectorAll("h1,h2,h3")).map(el=>el.textContent),errors:window.__qaErrors,toasts:window.__qaToasts,clicks:window.__qaClicks,secure:isSecureContext,uuid:typeof crypto.randomUUID}'))}catch{/* Driver may already be closed. */}
   try{fs.writeFileSync(`tests/safari-${isIPad?'ipad':'macos'}-failure.png`,Buffer.from(await driver.takeScreenshot(),'base64'))}catch{/* Driver may already be closed. */}
   throw error;
  }finally{try{await driver.quit()}finally{await service?.kill()}}
