@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {Builder,By,Key}=require('selenium-webdriver');
+const {Pointer}=require('selenium-webdriver/lib/input');
 const safari=require('selenium-webdriver/safari');
 const base=process.env.BASE_URL||'http://127.0.0.1:3100';
 const isIPad=process.env.SAFARI_TARGET==='ipad';
@@ -31,7 +32,8 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
  const tap=async element=>{
   if(isIPad){
    await driver.executeAsyncScript(function(element,done){element.scrollIntoView({block:'center',inline:'center',behavior:'instant'});requestAnimationFrame(()=>requestAnimationFrame(done))},element);
-   await driver.actions({async:true}).move({origin:element,duration:100}).click().perform();
+   const finger=new Pointer('ipad-finger',Pointer.Type.TOUCH);
+   await driver.actions({async:true}).insert(finger,finger.move({origin:element,duration:100}),finger.press(0,1,1,0.5)).pause(100,finger).insert(finger,finger.release()).perform();
   }else await element.click();
  };
  const click=async selector=>tap(await css(selector));
@@ -42,13 +44,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   }else await click(width<768?`nav[aria-label="Mobile Navigation"] a[href="${view==='studio'?'/':'/?view='+view}"]`:`aside a[title="${desktop}"]`);
   await heading({dashboard:'MetaForge SaaS Operations Console',compare:'Compare Requires 2+ Images',presets:'Metadata & SEO Presets Manager',jobs:'Background Batch Processing Queue',studio:'METAFORGE'}[view]);
  };
- try{
-  await driver.manage().setTimeouts({script:30000,pageLoad:45000});
-  if(!isIPad)await driver.manage().window().setRect({width:1440,height:1000});
-  const capabilities=await driver.getCapabilities();
-  console.log(`Native ${isIPad?'iPadOS':'macOS'} Safari ${capabilities.get('browserVersion')}`);
-  await driver.get(base);
-  console.log('Native canvas formats',await driver.executeAsyncScript(function(done){
+ const canvasFormats=()=>driver.executeAsyncScript(function(done){
    Promise.all([false,true].map(willReadFrequently=>new Promise(resolve=>{
     try{
      const canvas=document.createElement('canvas');canvas.width=16;canvas.height=12;
@@ -58,8 +54,22 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
      canvas.toBlob(blob=>resolve({willReadFrequently,pixel,dataUrlHeader:dataUrl.slice(0,64),blobType:blob?.type,blobSize:blob?.size}),'image/jpeg',0.95);
     }catch(error){resolve({willReadFrequently,error:error.message})}
    }))).then(done);
-  }));
-  await driver.executeScript('window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)));addEventListener("click",e=>window.__qaClicks.push(e.target.closest("button,a")?.textContent),true);new MutationObserver(()=>{for(const node of document.querySelectorAll("[role=status],[role=alert]")){if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent)}}).observe(document.body,{childList:true,subtree:true})');
+  });
+ try{
+  await driver.manage().setTimeouts({script:30000,pageLoad:45000});
+  if(!isIPad)await driver.manage().window().setRect({width:1440,height:1000});
+  const capabilities=await driver.getCapabilities();
+  console.log(`Native ${isIPad?'iPadOS':'macOS'} Safari ${capabilities.get('browserVersion')}`);
+  await driver.get(base);
+  await driver.executeScript('window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];window.__qaInput=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)));addEventListener("click",e=>window.__qaClicks.push(e.target.closest("button,a")?.textContent),true);for(const type of ["pointerdown","pointerup","touchstart","touchend","click"])addEventListener(type,e=>{if(window.__qaInput.length<100)window.__qaInput.push({type,target:e.target.tagName,label:e.target.closest("button,a")?.getAttribute("aria-label")})},true);new MutationObserver(()=>{for(const node of document.querySelectorAll("[role=status],[role=alert]")){if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent)}}).observe(document.body,{childList:true,subtree:true})');
+  if(isIPad){
+   await driver.executeScript('window.__qaProbe=0;const probe=document.createElement("button");probe.id="native-input-probe";probe.textContent="Native touch input check";probe.style.cssText="position:fixed;left:40%;top:40%;width:160px;height:60px;z-index:9999;background:white;color:black";probe.onclick=()=>window.__qaProbe++;document.body.append(probe)');
+   try{
+    await tap(await css('#native-input-probe'));
+    await driver.wait(async()=>await driver.executeScript('return window.__qaProbe>0'),5000,'Native iPadOS input blocked: SafariDriver delivered no click to a standalone test button.');
+    console.log('PASS native iPadOS: independent touch input preflight');
+   }finally{await driver.executeScript('document.querySelector("#native-input-probe")?.remove()')}
+  }
   for(const view of [['dashboard','Dashboard','Home'],['compare','Metadata Compare','Compare'],['presets','Presets Manager','Presets'],['jobs','Batch Processing','More'],['studio','Studio Workstation','Studio']])await nav(...view);
   await nav('dashboard','Dashboard','Home');await nav('presets','Presets Manager','Presets');
   await driver.navigate().back();await heading('MetaForge SaaS Operations Console');
@@ -123,7 +133,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   fs.writeFileSync(`tests/safari-${isIPad?'ipad':'macos'}.png`,Buffer.from(await driver.takeScreenshot(),'base64'));
   console.log(`PASS native ${isIPad?'iPadOS Simulator':'macOS'} Safari: responsive controls, dialogs and no runtime errors`);
  }catch(error){
-  try{console.error('Safari failure state',await driver.executeScript('return {url:location.href,headings:Array.from(document.querySelectorAll("h1,h2,h3")).map(el=>el.textContent),errors:window.__qaErrors,toasts:window.__qaToasts,clicks:window.__qaClicks,secure:isSecureContext,uuid:typeof crypto.randomUUID}'))}catch{/* Driver may already be closed. */}
+  try{console.error('Safari failure state',await driver.executeScript('return {url:location.href,headings:Array.from(document.querySelectorAll("h1,h2,h3")).map(el=>el.textContent),errors:window.__qaErrors,toasts:window.__qaToasts,clicks:window.__qaClicks,input:window.__qaInput,secure:isSecureContext,uuid:typeof crypto.randomUUID}'));console.error('Native canvas formats',await canvasFormats())}catch{/* Driver may already be closed. */}
   try{fs.writeFileSync(`tests/safari-${isIPad?'ipad':'macos'}-failure.png`,Buffer.from(await driver.takeScreenshot(),'base64'))}catch{/* Driver may already be closed. */}
   throw error;
  }finally{try{await driver.quit()}finally{await service?.kill()}}
