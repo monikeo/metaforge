@@ -58,8 +58,12 @@ jobs:
             tests/*.png
             tests/*.log
   native-safari:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [macos, ipad]
     concurrency:
-      group: safari-macos15-${{ github.ref }}
+      group: safari-macos15-${{ matrix.target }}-${{ github.ref }}
       cancel-in-progress: true
     runs-on: macos-15
     timeout-minutes: 20
@@ -73,13 +77,14 @@ jobs:
       - run: npm run build
       - run: sudo safaridriver --enable
       - name: Native macOS Safari
+        if: matrix.target == 'macos'
         run: node tests/with-server.cjs tests/safari.cjs
       - name: Boot an iPadOS Simulator
         id: ipad-setup
-        if: ${{ !cancelled() }}
+        if: ${{ matrix.target == 'ipad' && !cancelled() }}
         run: node tests/prepare-apple-simulator.cjs
       - name: Native iPadOS Safari
-        if: ${{ !cancelled() && steps.ipad-setup.outcome == 'success' }}
+        if: ${{ matrix.target == 'ipad' && !cancelled() && steps.ipad-setup.outcome == 'success' }}
         timeout-minutes: 5
         env:
           SAFARI_TARGET: ipad
@@ -87,7 +92,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: native-safari
+          name: native-safari-${{ matrix.target }}
           path: |
             tests/*.png
             tests/*.log

@@ -30,15 +30,19 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
  };
  const driver=await startDriver().catch(async error=>{await service?.kill();throw error});
  const visible=async locator=>driver.wait(async()=>{
-  for(const element of await driver.findElements(locator)){
-   try{if(await element.isDisplayed())return element}catch(error){if(error.name!=='StaleElementReferenceError')throw error}
-  }
+  try{
+   for(const element of await driver.findElements(locator))if(await element.isDisplayed())return element;
+  }catch(error){if(error.name!=='StaleElementReferenceError')throw error}
   return false;
  },20000,`Visible element: ${locator}`);
  const css=selector=>visible(By.css(selector));
  const button=text=>visible(By.xpath(`//button[normalize-space(.)=${JSON.stringify(text)}]`));
  const heading=text=>visible(By.xpath(`//*[self::h1 or self::h2 or self::h3][normalize-space(.)=${JSON.stringify(text)}]`));
- const fill=async(selector,value)=>{const element=await css(selector);await element.clear();await element.sendKeys(value)};
+ const fill=async(selector,value)=>{
+  const element=await css(selector);await element.clear();
+  for(const character of value)await element.sendKeys(character);
+  assert.equal(await(await css(selector)).getAttribute('value'),value,'Native Safari did not enter the complete test input.');
+ };
  const tap=async element=>{
   if(isIPad){
    await driver.executeAsyncScript(function(element,done){element.scrollIntoView({block:'center',inline:'center',behavior:'instant'});requestAnimationFrame(()=>requestAnimationFrame(done))},element);
@@ -109,6 +113,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   await tap(await button('Save SEO to Image'));
   await visible(By.xpath('//*[normalize-space(.)="SEO Saved to Image"]'));
   if(width<768)await tap(await button('Canvas'));
+  await driver.wait(()=>driver.executeScript('return Array.from(document.images).some(img=>img.src.startsWith("blob:")&&img.complete&&img.naturalWidth>0&&img.getBoundingClientRect().width>100)'),15000,'The saved image preview did not finish decoding.');
   const bytes=await driver.executeAsyncScript(function(done){
    const image=Array.from(document.images).find(img=>img.src.startsWith('blob:')&&img.getBoundingClientRect().width>100);
    if(!image)return done({error:'No visible preview'});
