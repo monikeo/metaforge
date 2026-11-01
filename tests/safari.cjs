@@ -20,9 +20,19 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   builder=builder.usingServer(await service.start());
  }
  if(process.env.SAFARI_REMOTE_URL)builder=builder.usingServer(process.env.SAFARI_REMOTE_URL);
- const driver=await builder.build().catch(async error=>{await service?.kill();throw error});
+ const startDriver=async()=>{
+  for(let attempt=0;attempt<2;attempt++){
+   try{return await builder.build()}catch(error){
+    if(!isIPad||attempt||error.name!=='SessionNotCreatedError')throw error;
+    console.warn('Native iPadOS Safari was not ready; retrying session creation once.');
+   }
+  }
+ };
+ const driver=await startDriver().catch(async error=>{await service?.kill();throw error});
  const visible=async locator=>driver.wait(async()=>{
-  for(const element of await driver.findElements(locator))if(await element.isDisplayed())return element;
+  for(const element of await driver.findElements(locator)){
+   try{if(await element.isDisplayed())return element}catch(error){if(error.name!=='StaleElementReferenceError')throw error}
+  }
   return false;
  },20000,`Visible element: ${locator}`);
  const css=selector=>visible(By.css(selector));
@@ -55,20 +65,31 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
     }catch(error){resolve({willReadFrequently,error:error.message})}
    }))).then(done);
   });
+ const observePage=()=>driver.executeScript(function(){
+  window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];window.__qaInput=[];
+  addEventListener('error',event=>window.__qaErrors.push(event.message));
+  addEventListener('unhandledrejection',event=>window.__qaErrors.push(String(event.reason?.message||event.reason)));
+  addEventListener('click',event=>window.__qaClicks.push(event.target.closest('button,a')?.textContent),true);
+  for(const type of ['pointerdown','pointerup','touchstart','touchend','click'])addEventListener(type,event=>{
+   if(window.__qaInput.length<100)window.__qaInput.push({type,target:event.target.tagName,label:event.target.closest('button,a')?.getAttribute('aria-label')});
+  },true);
+  new MutationObserver(()=>{for(const node of document.querySelectorAll('[role=status],[role=alert]')){
+   if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent);
+  }}).observe(document.body,{childList:true,subtree:true});
+ });
  try{
   await driver.manage().setTimeouts({script:30000,pageLoad:45000});
   if(!isIPad)await driver.manage().window().setRect({width:1440,height:1000});
   const capabilities=await driver.getCapabilities();
   console.log(`Native ${isIPad?'iPadOS':'macOS'} Safari ${capabilities.get('browserVersion')}`);
-  await driver.get(base);
-  await driver.executeScript('window.__qaErrors=[];window.__qaToasts=[];window.__qaClicks=[];window.__qaInput=[];addEventListener("error",e=>window.__qaErrors.push(e.message));addEventListener("unhandledrejection",e=>window.__qaErrors.push(String(e.reason?.message||e.reason)));addEventListener("click",e=>window.__qaClicks.push(e.target.closest("button,a")?.textContent),true);for(const type of ["pointerdown","pointerup","touchstart","touchend","click"])addEventListener(type,e=>{if(window.__qaInput.length<100)window.__qaInput.push({type,target:e.target.tagName,label:e.target.closest("button,a")?.getAttribute("aria-label")})},true);new MutationObserver(()=>{for(const node of document.querySelectorAll("[role=status],[role=alert]")){if(!window.__qaToasts.includes(node.textContent))window.__qaToasts.push(node.textContent)}}).observe(document.body,{childList:true,subtree:true})');
+  await driver.get(isIPad?'data:text/html;charset=utf-8,'+encodeURIComponent('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Independent native touch check</title><body></body>'):base);
+  await observePage();
   if(isIPad){
    await driver.executeScript('window.__qaProbe=0;const probe=document.createElement("button");probe.id="native-input-probe";probe.textContent="Native touch input check";probe.style.cssText="position:fixed;left:40%;top:40%;width:160px;height:60px;z-index:9999;background:white;color:black";probe.onclick=()=>window.__qaProbe++;document.body.append(probe)');
-   try{
-    await tap(await css('#native-input-probe'));
-    await driver.wait(async()=>await driver.executeScript('return window.__qaProbe>0'),5000,'Native iPadOS input blocked: SafariDriver delivered no click to a standalone test button.');
-    console.log('PASS native iPadOS: independent touch input preflight');
-   }finally{await driver.executeScript('document.querySelector("#native-input-probe")?.remove()')}
+   await tap(await css('#native-input-probe'));
+   await driver.wait(async()=>await driver.executeScript('return window.__qaProbe>0'),5000,'Native iPadOS input blocked: SafariDriver delivered no click on a blank page independent of the app.');
+   console.log('PASS native iPadOS: independent touch input preflight');
+   await driver.get(base);await observePage();
   }
   for(const view of [['dashboard','Dashboard','Home'],['compare','Metadata Compare','Compare'],['presets','Presets Manager','Presets'],['jobs','Batch Processing','More'],['studio','Studio Workstation','Studio']])await nav(...view);
   await nav('dashboard','Dashboard','Home');await nav('presets','Presets Manager','Presets');
