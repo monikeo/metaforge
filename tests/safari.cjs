@@ -39,15 +39,23 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
  const button=text=>visible(By.xpath(`//button[normalize-space(.)=${JSON.stringify(text)}]`));
  const heading=text=>visible(By.xpath(`//*[self::h1 or self::h2 or self::h3][normalize-space(.)=${JSON.stringify(text)}]`));
  const fill=async(selector,value)=>{
-  const element=await css(selector);await element.clear();
-  for(const character of value)await element.sendKeys(character);
-  assert.equal(await(await css(selector)).getAttribute('value'),value,'Native Safari did not enter the complete test input.');
+  const element=await css(selector);
+  await element.sendKeys(Key.COMMAND,'a',Key.NULL,Key.BACK_SPACE);
+  await driver.wait(async()=>await(await css(selector)).getProperty('value')==='',5000,`Native Safari did not clear ${selector}.`);
+  let entered='';
+  for(const character of value){
+   entered+=character;await(await css(selector)).sendKeys(character);
+   await driver.wait(async()=>await(await css(selector)).getProperty('value')===entered,5000,`Native Safari did not finish entering character ${entered.length} in ${selector}.`);
+   await driver.executeAsyncScript(done=>requestAnimationFrame(()=>requestAnimationFrame(done)));
+  }
+  assert.equal(await(await css(selector)).getProperty('value'),value,'Native Safari did not enter the complete test input.');
  };
  const tap=async element=>{
   if(isIPad){
    await driver.executeAsyncScript(function(element,done){element.scrollIntoView({block:'center',inline:'center',behavior:'instant'});requestAnimationFrame(()=>requestAnimationFrame(done))},element);
    const finger=new Pointer('ipad-finger',Pointer.Type.TOUCH);
-   await driver.actions({async:true}).insert(finger,finger.move({origin:element,duration:100}),finger.press(0,1,1,0.5)).pause(100,finger).insert(finger,finger.release()).perform();
+   // Keep the release at the down coordinate with older iOS runtimes (WebKit 317834@main).
+   await driver.actions({async:true}).insert(finger,finger.move({origin:element,duration:100}),finger.press(0,1,1,0.5)).pause(100,finger).insert(finger,finger.release(),finger.move({origin:element,duration:0})).perform();
   }else await element.click();
  };
  const click=async selector=>tap(await css(selector));
@@ -74,7 +82,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   addEventListener('error',event=>window.__qaErrors.push(event.message));
   addEventListener('unhandledrejection',event=>window.__qaErrors.push(String(event.reason?.message||event.reason)));
   addEventListener('click',event=>window.__qaClicks.push(event.target.closest('button,a')?.textContent),true);
-  for(const type of ['pointerdown','pointerup','touchstart','touchend','click'])addEventListener(type,event=>{
+  for(const type of ['pointerdown','pointerup','pointercancel','touchstart','touchend','touchcancel','click'])addEventListener(type,event=>{
    if(window.__qaInput.length<100)window.__qaInput.push({type,target:event.target.tagName,label:event.target.closest('button,a')?.getAttribute('aria-label')});
   },true);
   new MutationObserver(()=>{for(const node of document.querySelectorAll('[role=status],[role=alert]')){
@@ -125,6 +133,7 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   await click('button[title="AI BYOK Settings"]');
   await fill('[aria-label="Gemini API key"]','safari-contract-test-key');
   await tap(await button('Save Configuration'));
+  await driver.wait(()=>driver.executeScript('return !document.querySelector("[aria-modal=true]")&&document.body.style.overflow===""'),15000,'AI settings did not finish closing.');
   await driver.executeScript(function(){
    const original=window.fetch.bind(window);window.__qaGeminiMode='quota';
    window.fetch=async(input,init)=>{
@@ -138,10 +147,10 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   await fill('[aria-label="SEO title"]','Preserve Safari draft');
   await tap(await button('Analyze with Gemini'));
   await visible(By.xpath('//*[contains(text(),"Gemini API rate limit exceeded")]'));
-  assert.equal(await(await css('[aria-label="SEO title"]')).getAttribute('value'),'Preserve Safari draft');
+  assert.equal(await(await css('[aria-label="SEO title"]')).getProperty('value'),'Preserve Safari draft');
   await driver.executeScript('window.__qaGeminiMode="valid"');
   await tap(await button('Analyze with Gemini'));
-  await driver.wait(async()=>await(await css('[aria-label="SEO title"]')).getAttribute('value')==='Safari generated title',30000);
+  await driver.wait(async()=>await(await css('[aria-label="SEO title"]')).getProperty('value')==='Safari generated title',30000);
   assert.equal(await driver.executeScript('const part=window.__qaGeminiRequest.contents.flatMap(c=>c.parts).find(p=>p.inlineData||p.inline_data);return atob((part.inlineData||part.inline_data).data).includes("Exif"+String.fromCharCode(0,0))'),false);
   console.log('PASS Safari: Gemini quota recovery, preserved draft, valid contract response and metadata-free preview');
 
