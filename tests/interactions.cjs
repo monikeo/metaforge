@@ -74,7 +74,7 @@ const base = process.env.BASE_URL || 'http://127.0.0.1:3100';
     await page.getByRole('button', { name: 'Load Sample (AI / ComfyUI)', exact: true }).click();
     await page.waitForFunction(() => document.body.innerText.includes('Queue (2)'));
     // With files loaded, clicking each menu must preserve the queue and render its real controls.
-    for (const [width, height] of [[320,568],[390,844],[768,1024],[820,1180],[1024,600],[1280,720],[1440,900],[1920,1080]]) {
+    for (const [width, height] of [[320,568],[390,844],[640,844],[768,1024],[820,1180],[1024,600],[1280,720],[1440,900],[1920,1080]]) {
       await page.setViewportSize({ width, height });
       for (const view of ['dashboard', 'compare', 'presets', 'jobs', 'studio']) await navigate(view, width, true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${width}px horizontal overflow`);

@@ -13,9 +13,13 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   if(process.env.SAFARI_SIMULATOR_UDID)options.set('safari:deviceUDID',process.env.SAFARI_SIMULATOR_UDID);
  }
  let builder=new Builder().forBrowser('safari').setSafariOptions(options);
- if(process.platform==='darwin'&&!process.env.SAFARI_REMOTE_URL)builder=builder.setSafariService(new safari.ServiceBuilder('/usr/bin/safaridriver'));
+ let service;
+ if(process.platform==='darwin'&&!process.env.SAFARI_REMOTE_URL){
+  service=new safari.ServiceBuilder('/usr/bin/safaridriver').build();
+  builder=builder.usingServer(await service.start());
+ }
  if(process.env.SAFARI_REMOTE_URL)builder=builder.usingServer(process.env.SAFARI_REMOTE_URL);
- const driver=await builder.build();
+ const driver=await builder.build().catch(async error=>{await service?.kill();throw error});
  const visible=async locator=>driver.wait(async()=>{
   for(const element of await driver.findElements(locator))if(await element.isDisplayed())return element;
   return false;
@@ -93,7 +97,8 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
    if(size)await driver.manage().window().setRect(size);
    assert.equal(await driver.executeScript('return document.documentElement.scrollWidth>innerWidth'),false);
    await click('button[title="AI BYOK Settings"]');
-   const key=await css('[aria-label="Gemini API key"]');await key.sendKeys(Key.ESCAPE);
+   if(isIPad)await click('button[aria-label="Close AI settings"]');
+   else {const key=await css('[aria-label="Gemini API key"]');await key.sendKeys(Key.ESCAPE)}
    await driver.wait(async()=>await driver.executeScript('return !document.querySelector("[aria-modal=true]")&&document.body.style.overflow===""'),15000);
   }
   assert.deepEqual(await driver.executeScript('return window.__qaErrors'),[]);
@@ -102,5 +107,5 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
  }catch(error){
   try{fs.writeFileSync(`tests/safari-${isIPad?'ipad':'macos'}-failure.png`,Buffer.from(await driver.takeScreenshot(),'base64'))}catch{/* Driver may already be closed. */}
   throw error;
- }finally{await driver.quit()}
+ }finally{try{await driver.quit()}finally{await service?.kill()}}
 })().catch(error=>{console.error(error);process.exitCode=1});

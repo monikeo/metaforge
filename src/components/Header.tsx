@@ -49,7 +49,7 @@ export default function Header() {
         
         {/* Brand & Main Route Links */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Link href="/" onNavigate={(event) => { if (pathname === '/') { event.preventDefault(); setCurrentView('studio'); } }} className="flex items-center gap-1 min-[400px]:gap-2 sm:gap-2.5 group">
+          <Link href="/" prefetch={false} onNavigate={(event) => { if (pathname === '/') { event.preventDefault(); setCurrentView('studio'); } }} className="flex items-center gap-1 min-[400px]:gap-2 sm:gap-2.5 group">
             <div className="w-7 h-7 min-[400px]:w-8 min-[400px]:h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-lg shadow-purple-600/20 flex items-center justify-center shrink-0">
               <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
                 <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:scale-110 transition" />
@@ -71,9 +71,10 @@ export default function Header() {
           </Link>
 
           {/* Navigation Links for Studio, Docs, Guides */}
-          <nav className="hidden sm:flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-3 bg-neutral-900/70 p-1 rounded-xl border border-neutral-800/80">
+          <nav className="hidden md:flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-3 bg-neutral-900/70 p-1 rounded-xl border border-neutral-800/80">
             <Link
               href="/"
+              prefetch={false}
               onNavigate={(event) => { if (pathname === '/') { event.preventDefault(); setCurrentView('studio'); } }}
               aria-current={pathname === '/' && currentView === 'studio' ? 'page' : undefined}
               className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition touch-target sm:min-h-0 sm:min-w-0 ${

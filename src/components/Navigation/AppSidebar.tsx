@@ -100,6 +100,7 @@ export default function AppSidebar() {
               <Link
                 key={item.id}
                 href={workspaceHref(item.id)}
+                prefetch={false}
                 onNavigate={(event) => { event.preventDefault(); setCurrentView(item.id); }}
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
@@ -200,6 +201,7 @@ export default function AppSidebar() {
         <div className="flex items-center justify-around h-14">
           <Link
             href={workspaceHref('dashboard')}
+            prefetch={false}
             onNavigate={(event) => { event.preventDefault(); setCurrentView('dashboard'); }}
             aria-current={currentView === 'dashboard' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 w-16 h-12 rounded-xl text-[10px] font-semibold transition touch-target-lg ${
@@ -213,6 +215,7 @@ export default function AppSidebar() {
           <Link
             aria-label="Studio"
             href={workspaceHref('studio')}
+            prefetch={false}
             onNavigate={(event) => { event.preventDefault(); setCurrentView('studio'); }}
             aria-current={currentView === 'studio' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 w-16 h-12 rounded-xl text-[10px] font-semibold transition touch-target-lg ${
@@ -232,6 +235,7 @@ export default function AppSidebar() {
 
           <Link
             href={workspaceHref('compare')}
+            prefetch={false}
             onNavigate={(event) => { event.preventDefault(); setCurrentView('compare'); }}
             aria-current={currentView === 'compare' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 w-16 h-12 rounded-xl text-[10px] font-semibold transition touch-target-lg ${
@@ -244,6 +248,7 @@ export default function AppSidebar() {
 
           <Link
             href={workspaceHref('presets')}
+            prefetch={false}
             onNavigate={(event) => { event.preventDefault(); setCurrentView('presets'); }}
             aria-current={currentView === 'presets' ? 'page' : undefined}
             className={`flex flex-col items-center justify-center gap-1 w-16 h-12 rounded-xl text-[10px] font-semibold transition touch-target-lg ${
@@ -281,6 +286,7 @@ export default function AppSidebar() {
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <Link href={workspaceHref('jobs')}
+                prefetch={false}
                 onNavigate={(event) => { event.preventDefault(); setCurrentView('jobs'); }}
                 onClick={() => setIsMobileMoreOpen(false)}
                 className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-left flex flex-col gap-1.5 touch-target"
