@@ -86,8 +86,9 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   await driver.executeScript(function(){
    const original=window.fetch.bind(window);window.__qaGeminiMode='quota';
    window.fetch=async(input,init)=>{
-    if(!String(typeof input==='string'?input:input.url).includes('generativelanguage.googleapis.com'))return original(input,init);
-    window.__qaGeminiRequest=JSON.parse(init.body);
+    if(!String(typeof input==='string'?input:input.url||input).includes('generativelanguage.googleapis.com'))return original(input,init);
+    const request=input instanceof Request&&!init?input.clone():new Request(input,init);
+    window.__qaGeminiRequest=await request.json();
     if(window.__qaGeminiMode==='quota')return new Response(JSON.stringify({error:{code:429,message:'RESOURCE_EXHAUSTED',status:'RESOURCE_EXHAUSTED'}}),{status:429,headers:{'Content-Type':'application/json'}});
     return new Response(JSON.stringify({candidates:[{content:{role:'model',parts:[{text:JSON.stringify({title:'Safari generated title',caption:'Generated caption',altText:'Generated accessible alt',keywords:['safari'],privacyFlags:{}})}]},finishReason:'STOP'}]}),{headers:{'Content-Type':'application/json'}});
    };
