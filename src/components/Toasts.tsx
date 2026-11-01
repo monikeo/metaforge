@@ -10,7 +10,7 @@ export default function Toasts() {
   if (!toasts.length) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-3">
+    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:bottom-4 right-3 md:right-4 toast-stack z-[60] flex flex-col gap-2 w-[calc(100%-1.5rem)] max-w-sm pointer-events-none">
       {toasts.map((toast) => {
         let Icon = CheckCircle2;
         let colorClasses = 'border-emerald-500/30 bg-emerald-950/90 text-emerald-200';
@@ -33,8 +33,8 @@ export default function Toasts() {
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-start gap-2.5 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-2 duration-200 ${colorClasses}`}
-            role="status"
+            className={`pointer-events-none flex items-start gap-2.5 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-2 duration-200 ${colorClasses}`}
+            role={toast.type === 'error' ? 'alert' : 'status'}
           >
             <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${iconColor}`} />
             <div className="flex-1 min-w-0">
@@ -44,8 +44,9 @@ export default function Toasts() {
               )}
             </div>
             <button
+              aria-label="Dismiss notification"
               onClick={() => removeToast(toast.id)}
-              className="p-1 rounded-lg opacity-60 hover:opacity-100 transition -mr-1 -mt-1"
+              className="pointer-events-auto p-1 rounded-lg opacity-60 hover:opacity-100 transition -mr-1 -mt-1"
             >
               <X className="w-3.5 h-3.5" />
             </button>

@@ -1,8 +1,12 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { FileCode, Download, Copy, Check, X } from 'lucide-react';
+import { buildImageSitemap } from '@/lib/sitemap';
+import { copyText } from '@/lib/clipboard';
 import { saveAs } from 'file-saver';
 
 export default function SitemapExport() {
@@ -11,42 +15,18 @@ export default function SitemapExport() {
   const [domain, setDomain] = useState('https://example.com');
   const [copied, setCopied] = useState(false);
 
-  // Generate XML
-  const generateXml = () => {
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n`;
-    xml += `        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
-
-    for (const f of files) {
-      xml += `  <url>\n`;
-      xml += `    <loc>${domain}/gallery/${encodeURIComponent(f.name.replace(/\.[^/.]+$/, ''))}</loc>\n`;
-      xml += `    <image:image>\n`;
-      xml += `      <image:loc>${domain}/images/${encodeURIComponent(f.name)}</image:loc>\n`;
-      if (f.seoData?.title) {
-        xml += `      <image:title><![CDATA[${f.seoData.title}]]></image:title>\n`;
-      }
-      if (f.seoData?.caption) {
-        xml += `      <image:caption><![CDATA[${f.seoData.caption}]]></image:caption>\n`;
-      }
-      xml += `    </image:image>\n`;
-      xml += `  </url>\n`;
-    }
-
-    xml += `</urlset>`;
-    return xml;
-  };
-
-  const xmlContent = generateXml();
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(xmlContent);
-    setCopied(true);
+  let xmlContent = '', validationError = '';
+  try { xmlContent = buildImageSitemap(domain, files); }
+  catch (error) { validationError = error instanceof Error ? error.message : 'Invalid website URL.'; }
+  const handleCopy = async () => {
+    if (!xmlContent) return;
+    setCopied(await copyText(xmlContent));
     setTimeout(() => setCopied(false), 2000);
   };
-
   const handleDownload = () => {
-    const blob = new Blob([xmlContent], { type: 'application/xml;charset=utf-8' });
-    saveAs(blob, 'image-sitemap.xml');
+    if (!xmlContent) return;
+    try { saveAs(new Blob([xmlContent], { type: 'application/xml;charset=utf-8' }), 'image-sitemap.xml'); }
+    catch { useMetaForgeStore.getState().addToast({ type: 'error', title: 'Sitemap Download Failed', description: 'Try downloading again.' }); }
   };
 
   return (
@@ -61,7 +41,7 @@ export default function SitemapExport() {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+        <ModalOverlay onClose={() => setIsOpen(false)} label="Image sitemap" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
           <div className="w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
             {/* Mobile Pull Handle */}
             <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -75,6 +55,7 @@ export default function SitemapExport() {
                 </div>
               </div>
               <button
+                aria-label="Close image sitemap"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
@@ -87,6 +68,8 @@ export default function SitemapExport() {
               <label className="text-xs font-medium text-neutral-400">Website Base Domain URL</label>
               <input
                 type="url"
+                aria-label="Website base URL"
+                aria-invalid={!!validationError}
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="https://example.com"
@@ -94,6 +77,8 @@ export default function SitemapExport() {
               />
             </div>
 
+            {validationError && <p role="alert" className="text-xs text-rose-300">{validationError}</p>}
+            <p className="text-xs text-neutral-400">These URLs assume /gallery/ pages and /images/ assets on your website. Publish the images at those paths before submitting the sitemap.</p>
             {/* XML Preview */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-xs text-neutral-400">
@@ -108,6 +93,7 @@ export default function SitemapExport() {
             {/* Actions */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-neutral-800">
               <button
+                disabled={!xmlContent}
                 onClick={handleCopy}
                 className="px-4 py-2 rounded-xl text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition flex items-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0"
               >
@@ -115,6 +101,7 @@ export default function SitemapExport() {
                 {copied ? 'Copied' : 'Copy XML'}
               </button>
               <button
+                disabled={!xmlContent}
                 onClick={handleDownload}
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 shadow-md shadow-blue-600/20 touch-target sm:min-h-0 sm:min-w-0"
               >
@@ -123,7 +110,7 @@ export default function SitemapExport() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </>
   );

@@ -1,0 +1,83 @@
+name: Production readiness
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm audit
+      - run: npm run lint
+      - run: npm run test:lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run typecheck
+  browsers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BROWSER_ENGINE: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run build
+      - run: node tests/with-server.cjs tests/interactions.cjs tests/browser-audit.cjs
+      - if: matrix.browser == 'webkit'
+        run: node tests/with-server.cjs tests/apple-devices.cjs
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: browser-${{ matrix.browser }}
+          path: |
+            tests/*.png
+            tests/*.log
+  native-safari:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: sudo safaridriver --enable
+      - name: Native macOS Safari
+        run: node tests/with-server.cjs tests/safari.cjs
+      - name: Boot an iPadOS Simulator
+        run: node tests/prepare-apple-simulator.cjs
+      - name: Native iPadOS Safari
+        env:
+          SAFARI_TARGET: ipad
+        run: node tests/with-server.cjs tests/safari.cjs
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: native-safari
+          path: |
+            tests/*.png
+            tests/*.log

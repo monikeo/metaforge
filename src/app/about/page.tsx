@@ -22,20 +22,23 @@ import {
 } from 'lucide-react';
 
 import ScrollProgress from '@/components/ScrollExperience/ScrollProgress';
+import { DEFAULT_GEMINI_MODEL } from '@/lib/ai-models';
+
+const buildYear = new Date().getFullYear();
 
 export const metadata = {
   title: 'About & Technical Architecture — MetaForge',
-  description: 'Deep technical overview of MetaForge dual-engine architecture, browser WebAssembly metadata core, Google Gemini BYOK vision layer, and privacy threat model.'
+  description: 'Deep technical overview of MetaForge dual-engine architecture, browser metadata core, Google Gemini BYOK vision layer, and privacy threat model.'
 };
 
 export default function AboutPage() {
   const supportedFormats = [
-    { format: 'JPEG / JPG', read: 'EXIF, IPTC, XMP, GPS, MakerNotes', write: 'Lossless EXIF/IPTC sync via piexifjs & canvas fallback', status: 'Full Read/Write' },
-    { format: 'PNG', read: 'tEXt, zTXt, iTXt (ComfyUI / SD prompts), EXIF', write: 'Canvas re-encoding & text chunk scrub', status: 'Full Read/Write' },
-    { format: 'WebP', read: 'EXIF, XMP, VP8/VP8X container headers', write: 'Metadata stripping & re-canvas export', status: 'Read + Strip' },
+    { format: 'JPEG / JPG', read: 'EXIF, IPTC, XMP, GPS, MakerNotes', write: 'Native EXIF and Unicode XMP editing', status: 'Full Read/Write' },
+    { format: 'PNG', read: 'tEXt, zTXt, iTXt (ComfyUI / SD prompts), EXIF', write: 'XMP editing and lossless text chunk removal', status: 'Full Read/Write' },
+    { format: 'WebP', read: 'EXIF, XMP, VP8/VP8X container headers', write: 'XMP editing and metadata chunk removal', status: 'Read + Write' },
     { format: 'TIFF', read: 'Multi-IFD EXIF, GPS, Baseline tags', write: 'In-memory parse & JSON telemetry export', status: 'Full Read' },
     { format: 'AVIF', read: 'ISO BMFF box headers, EXIF/XMP payloads', write: 'Client-side container decode', status: 'Full Read' },
-    { format: 'RAW (CR2, NEF, ARW, DNG)', read: 'ExifTool / WASM preview metadata extract', write: 'Metadata export to sidecar JSON / XML', status: 'Read + Catalog' }
+    { format: 'HEIC / HEIF', read: 'EXIF where supported by the browser and parser', write: 'PNG sanitization when browser decoding is available', status: 'Browser dependent' }
   ];
 
   return (
@@ -44,15 +47,15 @@ export default function AboutPage() {
       
       {/* Top Navbar */}
       <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-md flex items-center justify-center">
             <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
               <Flame className="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
             </div>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
-            <span className="text-[10px] text-neutral-400 font-mono -mt-1">ARCHITECTURE & DOCS</span>
+            <span className="text-xs sm:text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
+            <span className="hidden sm:block text-[10px] text-neutral-400 font-mono -mt-1">ARCHITECTURE & DOCS</span>
           </div>
         </Link>
 
@@ -70,11 +73,12 @@ export default function AboutPage() {
             href="/tutorial"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
-            Tutorial Guide
+            <span className="hidden sm:inline">Tutorial Guide</span>
+            <span className="sm:hidden">Guide</span>
           </Link>
 
           <a
-            href="https://github.com"
+            href="https://vercel.com/new"
             target="_blank"
             rel="noreferrer"
             className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shadow-md shadow-purple-600/20"
@@ -86,7 +90,7 @@ export default function AboutPage() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-12 sm:gap-16 pb-safe">
+      <main className="flex-1 w-full min-w-0 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-12 sm:gap-16 pb-safe">
         
         {/* Hero Section */}
         <section className="flex flex-col gap-4 text-center sm:text-left">
@@ -148,15 +152,15 @@ export default function AboutPage() {
               <ul className="text-xs text-purple-200/90 space-y-2.5 leading-relaxed">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                  <span><strong>Engine A (In-Browser Client Core):</strong> Employs WebAssembly, <code>exifr</code>, <code>piexifjs</code>, and HTML5 Canvas inside browser memory. 100% zero-upload execution.</span>
+                  <span><strong>Engine A (In-Browser Client Core):</strong> Employs JavaScript, <code>exifr</code>, <code>piexifjs</code>, and HTML5 Canvas inside browser memory. 100% zero-upload execution.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                  <span><strong>Engine B (Dynamic AI BYOK):</strong> Google Gemini Vision (<code>gemini-2.5-flash</code>) runs client-to-API with zero server relay. When disabled, the app is 100% offline.</span>
+                  <span><strong>Engine B (Dynamic AI BYOK):</strong> Google Gemini Vision (<code>{DEFAULT_GEMINI_MODEL}</code> by default) runs client-to-API with zero server relay. When disabled, image analysis requests are not sent. Local tools work after the app loads.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                  <span><strong>Zero Server Cost on Vercel:</strong> Operates as pure static Next.js assets on Vercel CDN. Host unlimited users without paying for backend compute.</span>
+                  <span><strong>Zero Server Cost on Vercel:</strong> Operates as pure static Next.js assets on Vercel CDN. Metadata processing requires no backend image service. Hosting and optional AI usage remain subject to provider limits.</span>
                 </li>
               </ul>
             </div>
@@ -168,10 +172,10 @@ export default function AboutPage() {
           <div className="border-b border-neutral-800 pb-3">
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
               <Clock className="w-5 h-5 text-emerald-400" />
-              Performance &amp; Latency Benchmark
+              Local Processing &amp; Limits
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-              Benchmark comparison between MetaForge in-browser WASM engine and traditional cloud upload pipelines.
+              Local processing avoids image uploads to the hosting server. Speed depends on image size, device memory, and format.
             </p>
           </div>
 
@@ -181,9 +185,9 @@ export default function AboutPage() {
                 Parse &amp; Extract Latency
               </span>
               <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1">
-                12 ms
+                Device dependent
               </div>
-              <span className="text-[11px] text-neutral-500">In-browser WASM vs 3,800ms server upload</span>
+              <span className="text-[11px] text-neutral-500">Parsing and writing run locally in JavaScript</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
@@ -198,12 +202,12 @@ export default function AboutPage() {
 
             <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                Max Concurrent Batch
+                Batch Scheduling
               </span>
               <div className="text-2xl sm:text-3xl font-black font-mono text-purple-400 mt-1">
-                Unlimited
+                Sequential
               </div>
-              <span className="text-[11px] text-neutral-500">Governed solely by local device RAM</span>
+              <span className="text-[11px] text-neutral-500">Per-file progress and failures are reported</span>
             </div>
           </div>
         </section>
@@ -227,7 +231,7 @@ export default function AboutPage() {
                 <Camera className="w-4 h-4" /> EXIF &amp; Camera Telemetry
               </div>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Reads and edits Shutter Speed, Aperture, ISO Ratings, Focal Length, Lens Specification, Camera Model, DateTimeOriginal, and MakerNotes across JPEG and TIFF.
+                Reads EXIF and camera metadata. Supported JPEG fields can be edited; structural and binary fields are read-only. TIFF is available for inspection and JSON export.
               </p>
             </div>
 
@@ -387,28 +391,28 @@ export default function AboutPage() {
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-1.5">
               <h3 className="text-xs font-bold text-white">Are my photos uploaded to any server?</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                No. All image parsing, metadata editing, GPS stripping, and ZIP packaging occur strictly in your browser&apos;s WebAssembly runtime and JavaScript memory. Zero image bytes leave your machine.
+                Local parsing, editing, cleaning, and ZIP packaging run in your browser. If you explicitly run Gemini analysis, an image preview is sent directly to Google.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-1.5">
               <h3 className="text-xs font-bold text-white">Where is my Google Gemini API key stored?</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Your API key is saved exclusively in your browser&apos;s private <code>localStorage</code>. It is sent directly to Google&apos;s API endpoint over HTTPS and never passes through any proxy or database.
+                Your API key is saved in this browser&apos;s unencrypted <code>localStorage</code>. Clear it on shared devices. It is sent directly to Google&apos;s API endpoint over HTTPS and never passes through any proxy or database.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-1.5">
               <h3 className="text-xs font-bold text-white">Can I edit individual EXIF tags?</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Yes. Every field in the Metadata Explorer and Metadata Compare view features inline editing, deletion, and one-click clipboard copying.
+                Supported fields can be edited, deleted, and copied. Structural fields and individual GPS values are read-only; use Remove GPS to remove the complete location safely.
               </p>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-1.5">
               <h3 className="text-xs font-bold text-white">Does stripping GPS reduce visual quality?</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                No. For JPEG files, MetaForge performs lossless binary chunk removal without re-compressing pixels, preserving 100% of your camera sensor&apos;s original image quality.
+                JPEG GPS removal usually preserves the compressed pixels. Secondary metadata and thumbnails are also removed to avoid duplicate locations. Full cleaning of rotated JPEGs may re-encode pixels to preserve orientation. Other formats may be converted to PNG.
               </p>
             </div>
           </div>
@@ -433,12 +437,12 @@ export default function AboutPage() {
 
         {/* Footer */}
         <footer className="border-t border-neutral-800 pt-6 pb-12 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-500 gap-4">
-          <p>© {new Date().getFullYear()} MetaForge Studio. Released under the MIT License.</p>
+          <p>© {buildYear} MetaForge Studio. Released under the MIT License.</p>
           <div className="flex items-center gap-4">
             <Link href="/" className="hover:text-white transition">Studio</Link>
             <Link href="/about" className="hover:text-white transition">Architecture</Link>
             <Link href="/tutorial" className="hover:text-white transition">Tutorial</Link>
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-white transition">GitHub</a>
+            <a href="https://github.com/monikeo/metaforge" target="_blank" rel="noreferrer" className="hover:text-white transition">GitHub</a>
           </div>
         </footer>
       </main>

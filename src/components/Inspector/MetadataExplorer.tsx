@@ -1,5 +1,8 @@
 'use client';
 
+import { getGpsCoordinates } from '@/lib/privacy-rules';
+import { copyText } from '@/lib/clipboard';
+
 import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import TagEditorModal from './TagEditorModal';
@@ -56,9 +59,9 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
     setOpenSections((prev) => ({ ...prev, [s]: !prev[s] }));
   };
 
-  const handleCopy = (tagPath: string, value: any) => {
+  const handleCopy = async (tagPath: string, value: any) => {
     const str = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
-    navigator.clipboard.writeText(str);
+    if (!(await copyText(str))) return;
     setCopiedKey(tagPath);
     setTimeout(() => setCopiedKey(null), 1800);
   };
@@ -81,16 +84,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
   const iptcSection = raw.iptc || {};
   const xmpSection = raw.xmp || {};
 
-  // Extract GPS coordinates if present
-  let lat: number | undefined;
-  let lon: number | undefined;
-  if (raw.latitude !== undefined && raw.longitude !== undefined) {
-    lat = raw.latitude;
-    lon = raw.longitude;
-  } else if (raw.gps?.latitude !== undefined) {
-    lat = raw.gps.latitude;
-    lon = raw.gps.longitude;
-  }
+  const { lat, lon } = getGpsCoordinates(raw);
 
   // Filter helper
   const filterEntries = (entries: [string, any][]) => {
@@ -103,6 +97,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
   };
 
   const renderTagRow = (sectionName: string, key: string, value: any, isEditable = true) => {
+    isEditable = isEditable && !['ExifIFD', 'GPSIFD', 'InteropIFD', 'ExifImageWidth', 'ExifImageHeight', 'MakerNote'].includes(key);
     const fullPath = `${sectionName}.${key}`;
     const isCopied = copiedKey === fullPath;
 
@@ -122,8 +117,8 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
         key={key}
         className="group flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-neutral-800/60 transition text-xs font-mono min-h-[38px]"
       >
-        <div className="flex items-baseline gap-2 min-w-0 pr-2">
-          <span className="text-neutral-400 font-semibold shrink-0 select-text">
+        <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.6fr)] gap-2 min-w-0 flex-1 pr-2">
+          <span className="text-neutral-400 font-semibold truncate select-text" title={key}>
             {key}:
           </span>
           <span className="text-neutral-200 truncate select-all" title={displayValue}>
@@ -131,7 +126,7 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 transition shrink-0">
+        <div className="flex items-center gap-1 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition shrink-0">
           <button
             onClick={() => handleCopy(fullPath, displayValue)}
             title="Copy value"
@@ -333,14 +328,14 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
 
                   <div className="divide-y divide-neutral-800/40">
                     {filterEntries(Object.entries(gpsSection)).map(([k, v]) =>
-                      renderTagRow('gps', k, v, true)
+                      renderTagRow('gps', k, v, false)
                     )}
                   </div>
                 </>
               ) : (
                 <div className="text-xs text-neutral-500 p-2 italic flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-neutral-600" />
-                  No GPS coordinates found (Clean)
+                  {file.privacyReport.hasGps ? 'Location metadata detected. Use the Privacy tool to remove it.' : 'No GPS coordinates detected'}
                 </div>
               )}
             </div>

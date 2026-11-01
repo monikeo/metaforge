@@ -1,5 +1,8 @@
 'use client';
 
+import { getGpsCoordinates } from '@/lib/privacy-rules';
+import { copyText } from '@/lib/clipboard';
+
 import React from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
@@ -31,15 +34,15 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
 
   const report = file.privacyReport;
   const isHighRisk = report.riskLevel === 'HIGH';
-  const isClean = report.score === 0;
+  const isClean = report.score === 0 && !report.inspectionWarning;
 
-  const lat = file.rawMetadata?.latitude ?? file.rawMetadata?.gps?.latitude ?? file.rawMetadata?.exif?.latitude;
-  const lon = file.rawMetadata?.longitude ?? file.rawMetadata?.gps?.longitude ?? file.rawMetadata?.exif?.longitude;
+  const { lat, lon } = getGpsCoordinates(file.rawMetadata);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+      {report.inspectionWarning && <p role="alert" className="text-xs text-amber-300 leading-relaxed">{report.inspectionWarning}</p>}
       {/* Risk Gauge Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className={`p-2 rounded-xl border ${
             isClean
@@ -122,7 +125,7 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
                 }`} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="font-semibold text-white truncate">{issue.title}</span>
                   <span className="text-[10px] font-mono opacity-60 uppercase">{issue.severity}</span>
                 </div>
@@ -154,8 +157,8 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
               </div>
 
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                onClick={async () => {
+                  if (!(await copyText(`${lat.toFixed(6)}, ${lon.toFixed(6)}`))) return;
                   setCopiedCoords(true);
                   setTimeout(() => setCopiedCoords(false), 1800);
                 }}

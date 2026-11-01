@@ -1,7 +1,10 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
+import { DEFAULT_GEMINI_MODEL, GEMINI_MODELS } from '@/lib/ai-models';
 import { Key, ShieldCheck, Sparkles, X, ExternalLink, Eye, EyeOff } from 'lucide-react';
 
 export default function AISettingsModal() {
@@ -16,10 +19,15 @@ export default function AISettingsModal() {
     setAiEnabled
   } = useMetaForgeStore();
 
+  const [previousOpen, setPreviousOpen] = useState(false);
   const [inputKey, setInputKey] = useState(geminiApiKey);
   const [showKey, setShowKey] = useState(false);
-  const [model, setModel] = useState(selectedModel || 'gemini-2.5-flash');
+  const [model, setModel] = useState(selectedModel || DEFAULT_GEMINI_MODEL);
 
+  if (previousOpen !== isAiSettingsOpen) {
+    setPreviousOpen(isAiSettingsOpen);
+    if (isAiSettingsOpen) { setInputKey(geminiApiKey); setModel(selectedModel); setShowKey(false); }
+  }
   if (!isAiSettingsOpen) return null;
 
   const handleSave = () => {
@@ -32,11 +40,9 @@ export default function AISettingsModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={() => setIsAiSettingsOpen(false)} label="AI settings" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div 
         className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 sm:gap-5 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6"
-        role="dialog"
-        aria-modal="true"
       >
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -53,6 +59,7 @@ export default function AISettingsModal() {
             </div>
           </div>
           <button 
+            aria-label="Close AI settings"
             onClick={() => setIsAiSettingsOpen(false)}
             className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
@@ -94,6 +101,9 @@ export default function AISettingsModal() {
               <input
                 type={showKey ? 'text' : 'password'}
                 placeholder="AIzaSy..."
+                aria-label="Gemini API key"
+                autoComplete="off"
+                spellCheck={false}
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 font-mono pr-10 min-h-[44px]"
@@ -108,7 +118,7 @@ export default function AISettingsModal() {
               </button>
             </div>
             <p className="text-[11px] text-neutral-400">
-              Stored exclusively in browser localStorage.
+              Saved in this browser’s local storage, which is not encrypted. Clear the key on shared devices.
             </p>
           </div>
 
@@ -118,13 +128,12 @@ export default function AISettingsModal() {
               Vision Model Architecture
             </label>
             <select
+              aria-label="Gemini model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-xs sm:text-sm text-neutral-200 focus:outline-none focus:border-purple-500 min-h-[44px]"
             >
-              <option value="gemini-2.5-flash">gemini-2.5-flash (Fastest, latest generation vision — Recommended)</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash (Standard lightweight vision)</option>
-              <option value="gemini-1.5-pro">gemini-1.5-pro (High reasoning, deep scene analysis)</option>
+              {GEMINI_MODELS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>
           </div>
         </div>
@@ -137,6 +146,7 @@ export default function AISettingsModal() {
               onClick={() => {
                 setInputKey('');
                 setApiKey('');
+                setAiEnabled(false);
               }}
               className="text-xs text-rose-400 hover:text-rose-300 hover:underline min-h-[40px] flex items-center"
             >
@@ -162,6 +172,6 @@ export default function AISettingsModal() {
           </div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

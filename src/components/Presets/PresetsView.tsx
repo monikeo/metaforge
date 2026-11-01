@@ -1,6 +1,9 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState, useRef } from 'react';
+import { validatePreset } from '@/lib/store';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
   Sliders, 
@@ -26,7 +29,8 @@ export default function PresetsView() {
     applyPreset, 
     createPreset, 
     deletePreset,
-    addToast
+    addToast,
+    isProcessing
   } = useMetaForgeStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,34 +108,25 @@ export default function PresetsView() {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         const importedArray = Array.isArray(parsed) ? parsed : [parsed];
-        let count = 0;
-        importedArray.forEach((p: any) => {
-          if (p.name && p.category) {
-            createPreset({
-              name: p.name,
-              category: p.category,
-              description: p.description || 'Imported configuration',
-              tags: p.tags || {},
-              stripGps: Boolean(p.stripGps),
-              stripSerials: Boolean(p.stripSerials),
-              filenameTemplate: p.filenameTemplate || '{title}-{counter}'
-            });
-            count++;
-          }
-        });
+        if (importedArray.length > 100) throw new Error('Import up to 100 presets at a time.');
+        const validated = importedArray.map(validatePreset);
+        validated.forEach(createPreset);
+        const count = validated.length;
         addToast({
           type: 'success',
           title: 'Presets Imported',
           description: `Successfully imported ${count} preset profile(s).`
         });
-      } catch {
+      } catch (error) {
         addToast({
           type: 'error',
           title: 'Import Failed',
-          description: 'Invalid JSON presets file format.'
+          description: error instanceof Error ? error.message : 'Invalid JSON presets file format.'
         });
       }
     };
+    reader.onerror = () => addToast({ type: 'error', title: 'Import Failed', description: 'Could not read the preset file.' });
+    if (file.size > 1024 * 1024) { addToast({ type: 'error', title: 'Import Failed', description: 'Preset files must be 1 MB or smaller.' }); return; }
     reader.readAsText(file);
     e.target.value = '';
   };
@@ -262,7 +257,7 @@ export default function PresetsView() {
 
               <button
                 onClick={() => handleApply(preset.id)}
-                disabled={files.length === 0}
+                disabled={isProcessing || files.length === 0}
                 className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 hover:border-neutral-600 transition flex items-center justify-center gap-1.5 disabled:opacity-50 touch-target sm:min-h-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5 text-purple-400" />
@@ -275,7 +270,7 @@ export default function PresetsView() {
 
       {/* Create Preset Modal (Bottom Sheet on mobile, modal on desktop) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+        <ModalOverlay onClose={() => setIsModalOpen(false)} label="Create preset" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
           <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6">
             {/* Mobile Pull Handle */}
             <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -286,6 +281,7 @@ export default function PresetsView() {
                 <h3 className="text-sm font-bold text-white">Create New Metadata Preset</h3>
               </div>
               <button
+                aria-label="Close preset editor"
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
               >
@@ -395,7 +391,7 @@ export default function PresetsView() {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

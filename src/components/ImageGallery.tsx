@@ -43,6 +43,8 @@ export default function ImageGallery() {
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (f.seoData?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     if (!matchesSearch) return false;
+    if (filterOptions.aiStatus === 'AI_DETECTED' && !f.aiWorkflow.detected) return false;
+    if (filterOptions.aiStatus === 'NO_AI' && f.aiWorkflow.detected) return false;
 
     // Format
     if (filterOptions.format !== 'ALL') {
@@ -189,7 +191,8 @@ export default function ImageGallery() {
       )}
 
       {/* Thumbnails Scroll List */}
-      <div className="flex flex-col gap-2 max-h-[50dvh] sm:max-h-[calc(100dvh-420px)] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2 max-h-[50dvh] sm:max-h-[max(12rem,calc(100dvh-420px))] overflow-y-auto pr-1">
+        {!filteredFiles.length && <p className="py-6 text-center text-xs text-neutral-400">No images match these filters.</p>}
         {filteredFiles.map((file) => {
           const isActive = file.id === activeFileId;
           const isSelected = selectedFileIds.includes(file.id);
@@ -200,6 +203,10 @@ export default function ImageGallery() {
           return (
             <div
               key={file.id}
+              role="group"
+              aria-label={file.name}
+              tabIndex={0}
+              onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setActiveFile(file.id); } }}
               onClick={() => setActiveFile(file.id)}
               className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition cursor-pointer select-none ${
                 isActive
@@ -285,7 +292,7 @@ export default function ImageGallery() {
                   e.stopPropagation();
                   removeFile(file.id);
                 }}
-                className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 p-2 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition min-w-[36px] min-h-[36px] flex items-center justify-center"
+                className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 p-2 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition min-w-[36px] min-h-[36px] flex items-center justify-center"
                 title="Remove file"
               >
                 <Trash2 className="w-3.5 h-3.5" />

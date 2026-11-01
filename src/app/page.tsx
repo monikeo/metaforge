@@ -1,5 +1,7 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Dropzone from '@/components/Dropzone';
@@ -15,7 +17,6 @@ import SeoPreviewCard from '@/components/SEO/SeoPreviewCard';
 import SitemapExport from '@/components/SEO/SitemapExport';
 import AppSidebar from '@/components/Navigation/AppSidebar';
 import CommandPalette from '@/components/CommandPalette';
-import Toasts from '@/components/Toasts';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import DashboardView from '@/components/Dashboard/DashboardView';
 import MetadataCompareView from '@/components/Compare/MetadataCompareView';
@@ -70,7 +71,7 @@ export default function MetaForgeStudio() {
   // Keyboard navigation across images
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+      if (document.querySelector('[aria-modal="true"]') || (e.target as HTMLElement)?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes((e.target as HTMLElement)?.tagName) || currentView !== 'studio') {
         return;
       }
 
@@ -93,18 +94,17 @@ export default function MetaForgeStudio() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [files, activeIndex, setActiveFile]);
+  }, [files, activeIndex, setActiveFile, currentView]);
 
   return (
-    <div className="min-h-dvh flex flex-col bg-neutral-950 text-neutral-100 font-sans pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+    <div className="min-h-dvh md:h-dvh md:min-h-0 md:overflow-hidden flex flex-col bg-neutral-950 text-neutral-100 font-sans pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
       <Header />
       <CommandPalette />
-      <Toasts />
       <AISettingsModal />
 
       {/* Keyboard Shortcuts Helper Modal (Bottom Sheet on mobile, modal on desktop) */}
       {showKeyboardHelp && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
+        <ModalOverlay onClose={() => setShowKeyboardHelp(false)} label="Keyboard shortcuts" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
           <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 pb-safe sm:pb-5 animate-slide-up">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
@@ -112,6 +112,7 @@ export default function MetaForgeStudio() {
                 <h3 className="text-sm font-bold text-white">Keyboard Shortcuts</h3>
               </div>
               <button
+                aria-label="Close keyboard shortcuts"
                 onClick={() => setShowKeyboardHelp(false)}
                 className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-press"
               >
@@ -146,14 +147,14 @@ export default function MetaForgeStudio() {
               </div>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Main App Container with Sidebar & View Switcher */}
-      <div className="flex-1 flex flex-row min-w-0">
+      <div className="flex-1 min-h-0 flex flex-row min-w-0">
         <AppSidebar />
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 min-h-0 flex flex-col min-w-0">
           {currentView === 'dashboard' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ErrorBoundary fallbackTitle="Metadata Analytics Dashboard">
@@ -209,7 +210,7 @@ export default function MetaForgeStudio() {
                   <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2">
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
                       <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>100% In-Browser WASM</span>
+                      <span>Local Image Processing</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
                       <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
@@ -261,7 +262,7 @@ export default function MetaForgeStudio() {
               </main>
             ) : (
               /* WORKSTATION LAYOUT: 3 PURPOSE-BUILT RESPONSIVE EXPERIENCES */
-              <div className="flex-1 flex flex-col min-w-0">
+              <div className="flex-1 min-h-0 flex flex-col min-w-0">
                 
                 {/* =========================================================================
                     1. NATIVE MOBILE EXPERIENCE (< 768px / md)
@@ -384,7 +385,7 @@ export default function MetaForgeStudio() {
                     {mobileSection === 'canvas' && activeFile && (
                       <div className="flex flex-col gap-3 animate-fade-in">
                         <ErrorBoundary fallbackTitle="Mobile Canvas Preview">
-                          <ImageCanvasPreview file={activeFile} />
+                          <ImageCanvasPreview key={activeFile.id} file={activeFile} />
                         </ErrorBoundary>
 
                         {/* Quick Metadata Summary Pill Card */}
@@ -435,7 +436,7 @@ export default function MetaForgeStudio() {
                       <div className="flex flex-col gap-3 animate-fade-in">
                         <ErrorBoundary fallbackTitle="Metadata Explorer">
                           <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800">
-                            <MetadataExplorer fileId={activeFile.id} />
+                            <MetadataExplorer key={activeFile.id} fileId={activeFile.id} />
                           </div>
                         </ErrorBoundary>
                       </div>
@@ -453,7 +454,7 @@ export default function MetaForgeStudio() {
                       <div className="flex flex-col gap-4 animate-fade-in">
                         <ErrorBoundary fallbackTitle="AI SEO Studio">
                           <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
-                            <AIGeneratorPanel fileId={activeFile.id} />
+                            <AIGeneratorPanel key={activeFile.id} fileId={activeFile.id} />
                           </div>
                           <SeoPreviewCard file={activeFile} />
                           <SitemapExport />
@@ -509,23 +510,24 @@ export default function MetaForgeStudio() {
                     2. TABLET EXPERIENCE (768px - 1199px / md to xl)
                     2-Column Split Workstation with Independent Panes
                    ========================================================================= */}
-                <div className="hidden md:flex xl:hidden flex-1 min-w-0 p-4 gap-4 h-[calc(100dvh-64px)] overflow-hidden">
+                <div className="hidden md:flex xl:hidden flex-1 min-w-0 p-4 gap-4 min-h-0 overflow-hidden">
                   {/* Left Column (5 cols, 42%): Filmstrip & Canvas Preview */}
-                  <div className="w-[42%] flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
+                  <div className="w-[42%] min-w-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
                     {activeFile && (
                       <ErrorBoundary fallbackTitle="Tablet Canvas Preview">
-                        <ImageCanvasPreview file={activeFile} />
+                        <ImageCanvasPreview key={activeFile.id} file={activeFile} />
                       </ErrorBoundary>
                     )}
                     <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
                       <ImageGallery />
                     </div>
+                    <Dropzone />
                   </div>
 
                   {/* Right Column (7 cols, 58%): Tabbed Unified Inspector */}
-                  <div className="w-[58%] flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
+                  <div className="flex-1 min-w-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1">
                     {/* Tablet Subtabs */}
-                    <div className="sticky top-0 z-20 flex items-center gap-1 p-1 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl text-xs font-semibold overflow-x-auto shadow-md">
+                    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-1 p-1 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl text-xs font-semibold overflow-x-auto shadow-md">
                       <button
                         onClick={() => setTabletInspectorTab('metadata')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
@@ -586,7 +588,7 @@ export default function MetaForgeStudio() {
                         {tabletInspectorTab === 'metadata' && (
                           <ErrorBoundary fallbackTitle="Metadata Explorer">
                             <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800">
-                              <MetadataExplorer fileId={activeFile.id} />
+                              <MetadataExplorer key={activeFile.id} fileId={activeFile.id} />
                             </div>
                           </ErrorBoundary>
                         )}
@@ -601,7 +603,7 @@ export default function MetaForgeStudio() {
                           <ErrorBoundary fallbackTitle="AI SEO Studio">
                             <div className="flex flex-col gap-4">
                               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
-                                <AIGeneratorPanel fileId={activeFile.id} />
+                                <AIGeneratorPanel key={activeFile.id} fileId={activeFile.id} />
                               </div>
                               <SeoPreviewCard file={activeFile} />
                               <SitemapExport />
@@ -633,7 +635,7 @@ export default function MetaForgeStudio() {
                     3. NATIVE DESKTOP EXPERIENCE (≥ 1200px / xl / 2xl)
                     3-Column Workstation Layout with Independent Panes & No Infinite Scroll
                    ========================================================================= */}
-                <div className="hidden xl:flex flex-col flex-1 min-w-0 p-4 gap-3 h-[calc(100dvh-64px)] overflow-hidden">
+                <div className="hidden xl:flex flex-col flex-1 min-w-0 p-4 gap-3 min-h-0 overflow-hidden">
                   
                   {/* Desktop Workstation Toolbar */}
                   <div className="flex items-center justify-between text-xs px-2 py-1.5 bg-neutral-900/60 border border-neutral-800/80 rounded-xl shadow-xs shrink-0">
@@ -691,7 +693,7 @@ export default function MetaForgeStudio() {
                   <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
                     
                     {/* COLUMN 1: File Queue & Ingestion (col-span-3, 25%) */}
-                    <aside className="col-span-3 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                    <aside className="col-span-3 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                       <Dropzone />
                       <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
                         <ImageGallery />
@@ -699,16 +701,16 @@ export default function MetaForgeStudio() {
                     </aside>
 
                     {/* COLUMN 2: Interactive Canvas & Deep Tag Inspector (col-span-5, 41.6%) */}
-                    <section className="col-span-5 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                    <section className="col-span-5 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                       {activeFile && (
                         <>
                           <ErrorBoundary fallbackTitle="Desktop Canvas Preview">
-                            <ImageCanvasPreview file={activeFile} />
+                            <ImageCanvasPreview key={activeFile.id} file={activeFile} />
                           </ErrorBoundary>
 
                           {/* Sub-Tabs for Center Inspector */}
                           <div className="flex flex-col gap-2.5">
-                            <div className="sticky top-0 z-10 flex items-center gap-1 p-1 rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
+                            <div className="shrink-0 sticky top-0 z-10 flex items-center gap-1 p-1 overflow-x-auto rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
                               <button
                                 onClick={() => setActiveTab('inspector')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer touch-press ${
@@ -753,7 +755,7 @@ export default function MetaForgeStudio() {
                             <div className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 animate-fade-in">
                               {activeTab === 'inspector' && (
                                 <ErrorBoundary fallbackTitle="Metadata Explorer">
-                                  <MetadataExplorer fileId={activeFile.id} />
+                                  <MetadataExplorer key={activeFile.id} fileId={activeFile.id} />
                                 </ErrorBoundary>
                               )}
 
@@ -779,11 +781,11 @@ export default function MetaForgeStudio() {
                     </section>
 
                     {/* COLUMN 3: Intelligence & Publishing Studio (col-span-4, 33.3%) */}
-                    <aside className="col-span-4 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                    <aside className="col-span-4 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                       {activeFile && (
                         <>
                           {/* Segmented Switcher for Studio Tools */}
-                          <div className="sticky top-0 z-10 flex items-center gap-1 p-1 rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
+                          <div className="shrink-0 sticky top-0 z-10 flex items-center gap-1 p-1 overflow-x-auto rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
                             <button
                               onClick={() => setDesktopStudioTab('seo')}
                               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition touch-press ${
@@ -829,7 +831,7 @@ export default function MetaForgeStudio() {
                             {desktopStudioTab === 'seo' && (
                               <ErrorBoundary fallbackTitle="AI SEO Studio">
                                 <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-4">
-                                  <AIGeneratorPanel fileId={activeFile.id} />
+                                  <AIGeneratorPanel key={activeFile.id} fileId={activeFile.id} />
                                 </div>
                                 <SeoPreviewCard file={activeFile} />
                               </ErrorBoundary>

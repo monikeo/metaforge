@@ -1,5 +1,7 @@
 'use client';
 
+import { copyText } from '@/lib/clipboard';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
@@ -88,8 +90,8 @@ export default function TutorialPage() {
     return () => observer.disconnect();
   }, []);
 
-  const handleCopy = (key: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopy = async (key: string, text: string) => {
+    if (!(await copyText(text))) return;
     setCopiedCode(key);
     setTimeout(() => setCopiedCode(null), 1800);
   };
@@ -142,27 +144,27 @@ export default function TutorialPage() {
   const faqItems = [
     {
       q: "Does MetaForge upload my high-resolution photos to any server?",
-      a: "No. Every byte processing action—including EXIF parsing, lossless tag writing, GPS stripping, hex inspection, and ZIP packaging—runs 100% inside your browser's WebAssembly and JavaScript memory. Zero image files or client data are transmitted to any backend server."
+      a: "Local metadata tools run in your browser. When you explicitly request Gemini analysis, a re-encoded image preview is sent directly to Google using your API key."
     },
     {
       q: "How does the Google Gemini Vision AI assistant work without an account?",
-      a: "MetaForge utilizes a BYOK (Bring Your Own Key) architecture. You provide your free API key obtained directly from Google AI Studio. The key is stored solely in your private browser localStorage and connects client-to-Google via HTTPS with zero intermediary proxy."
+      a: "MetaForge utilizes a BYOK (Bring Your Own Key) architecture. You provide your free API key obtained directly from Google AI Studio. The key is stored solely in your browser localStorage, which is not encrypted, and connects client-to-Google via HTTPS with zero intermediary proxy."
     },
     {
       q: "Will stripping GPS coordinates reduce photo image quality or re-compress pixels?",
-      a: "No. For JPEG images, MetaForge performs direct binary chunk segment stripping via piexifjs. It safely removes the GPS IFD marker block while leaving the DCT frequency coefficients and image pixel streams untouched, resulting in 100% lossless preservation of sensor quality."
+      a: "JPEG GPS removal usually preserves compressed pixels and also removes secondary metadata that may duplicate the location. Full cleaning of rotated JPEGs may re-encode pixels to preserve orientation. Unsupported formats may be converted to PNG when the browser can decode them."
     },
     {
       q: "Why do some social media platforms remove my EXIF and copyright attribution?",
-      a: "Major social networks (e.g., Twitter/X, Instagram, Facebook) run automated server-side compression and privacy filters that re-encode images and strip EXIF blocks to protect users from location leaks. To preserve your attribution online, use MetaForge to write IPTC and Dublin Core headers, embed watermarks, and generate Image Sitemaps for Google Search."
+      a: "Publishing platforms may re-encode images and remove embedded metadata. MetaForge can write attribution into EXIF and XMP, but cannot force a platform to retain it. Check the published image and include attribution in your page content."
     },
     {
       q: "Can I use MetaForge on RAW camera files (CR2, NEF, ARW, DNG)?",
-      a: "Yes. MetaForge reads baseline metadata and MakerNotes from RAW camera files. Because modifying proprietary RAW camera binaries can invalidate manufacturer raw sensor data, MetaForge preserves your raw files safely and exports modified metadata into standardized sidecar JSON or XML formats."
+      a: "Proprietary camera RAW formats are not supported for editing. Use JPEG, PNG, or WebP exports from your camera workflow. TIFF metadata can be inspected and exported as JSON; browser decoding determines whether a preview or PNG conversion is available."
     },
     {
       q: "What is the maximum number of images I can process simultaneously in the Batch Queue?",
-      a: "There is no hardcoded limitation. Because processing executes client-side using memory streams and web workers, the batch queue capacity depends only on your device's available RAM. Users routinely process hundreds of multi-megapixel images simultaneously without server timeouts."
+      a: "The queue accepts up to 500 images and 256 MB of source files, with a 100 MB limit per image. Operations run sequentially in the browser and report per-file results. Large images and history snapshots can still use significant device memory."
     }
   ];
 
@@ -172,15 +174,15 @@ export default function TutorialPage() {
       
       {/* Top Navbar */}
       <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-md flex items-center justify-center">
             <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
               <Flame className="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
             </div>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
-            <span className="text-[10px] text-neutral-400 font-mono -mt-1">DOCUMENTATION &amp; MASTER GUIDE</span>
+            <span className="text-xs sm:text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
+            <span className="hidden sm:block text-[10px] text-neutral-400 font-mono -mt-1">DOCUMENTATION &amp; MASTER GUIDE</span>
           </div>
         </Link>
 
@@ -197,7 +199,8 @@ export default function TutorialPage() {
             href="/about"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-800 transition touch-target sm:min-h-0 sm:min-w-0"
           >
-            About &amp; Architecture
+            <span className="hidden sm:inline">About &amp; Architecture</span>
+            <span className="sm:hidden">About</span>
           </Link>
         </div>
       </nav>
@@ -290,7 +293,7 @@ export default function TutorialPage() {
               MetaForge Complete Technical Documentation
             </h1>
             <p className="text-xs sm:text-sm text-neutral-400 max-w-3xl leading-relaxed">
-              MetaForge is an in-browser image metadata workstation. Every reading, writing, sanitizing, and batch transformation takes place locally on your device using WebAssembly and in-memory streams—guaranteeing 100% operational privacy and instantaneous zero-latency operations.
+              MetaForge is an in-browser image metadata workstation. Every reading, writing, sanitizing, and batch transformation takes place locally on your device using JavaScript and in-memory streams. Optional Gemini analysis sends an image preview directly to Google. Processing time depends on image size and your device.
             </p>
 
             {/* Target Personas Bar */}
@@ -688,7 +691,7 @@ export default function TutorialPage() {
 
             <div className="text-xs sm:text-sm text-neutral-300 space-y-3 leading-relaxed">
               <p>
-                MetaForge includes an optional Google Gemini Vision assistant. When disabled, the application runs 100% offline. When enabled, enter your free API key from Google AI Studio:
+                MetaForge includes an optional Google Gemini Vision assistant. With AI disabled, local tools work without image uploads after the page loads. Reloading the application still requires the hosting server. To enable analysis, enter your API key from Google AI Studio:
               </p>
 
               <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/20 flex items-start gap-3">
@@ -696,7 +699,7 @@ export default function TutorialPage() {
                 <div className="text-xs">
                   <span className="font-bold text-white">Client-to-Google Direct Guarantee:</span>
                   <p className="text-neutral-400 mt-1">
-                    Your key is saved exclusively in your browser&apos;s <code>localStorage</code>. Requests are sent directly from your browser to Google&apos;s Gemini endpoint with zero middleware logging.
+                    Your key is saved in your browser&apos;s unencrypted <code>localStorage</code>. Clear it on shared devices. Requests are sent directly from your browser to Google&apos;s Gemini endpoint with zero middleware logging.
                   </p>
                 </div>
               </div>

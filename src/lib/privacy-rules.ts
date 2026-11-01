@@ -1,27 +1,35 @@
 import { PrivacyIssue, PrivacyRiskReport } from './types';
 
-export function analyzePrivacyRisks(metadata: Record<string, any>): PrivacyRiskReport {
+export function analyzePrivacyRisks(metadata: Record<string, any>, nativeMetadata?: Record<string, any>): PrivacyRiskReport {
   const issues: PrivacyIssue[] = [];
 
   // Helper to search across flat or nested objects
-  const searchValues: Record<string, any> = {};
+  const searchValues: Record<string, any> = Object.create(null);
+  const seen = new WeakSet<object>();
 
-  function traverse(obj: any, prefix = '') {
-    if (!obj || typeof obj !== 'object') return;
+  function traverse(obj: any, prefix = '', depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > 12 || seen.has(obj)) return;
+    seen.add(obj);
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
       if (value !== null && value !== undefined) {
         if (typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) {
-          traverse(value, fullKey);
+          traverse(value, fullKey, depth + 1);
         } else {
-          searchValues[key.toLowerCase()] = { key: fullKey, value };
+          const normalized = key.split(':').pop()!.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (value !== '' && (!Array.isArray(value) || value.length)) searchValues[normalized] = { key: fullKey, value };
           searchValues[fullKey.toLowerCase()] = { key: fullKey, value };
+          if (typeof value === 'string' && value.length < 2000000 && /^[\s]*[\[{]/.test(value)) {
+            try { traverse(JSON.parse(value), fullKey, depth + 1); } catch { /* Ordinary text need not be JSON. */ }
+          }
+          if (Array.isArray(value)) value.forEach((item, index) => { if (item && typeof item === 'object') traverse(item, `${fullKey}.${index}`, depth + 1); });
         }
       }
     }
   }
 
   traverse(metadata);
+  if (nativeMetadata) traverse(nativeMetadata);
 
   // 1. GPS Checks (High Severity)
   const gpsKeys = [
@@ -102,7 +110,7 @@ export function analyzePrivacyRisks(metadata: Record<string, any>): PrivacyRiskR
   const personalKeys = [
     { key: 'artist', label: 'Author / Artist Name' },
     { key: 'creator', label: 'Content Creator' },
-    { key: 'by-line', label: 'By-line Attribution' },
+    { key: 'byline', label: 'By-line Attribution' },
     { key: 'xpauthor', label: 'Windows Author Tag' }
   ];
 
@@ -132,7 +140,7 @@ export function analyzePrivacyRisks(metadata: Record<string, any>): PrivacyRiskR
   score = Math.min(100, score);
 
   let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
-  if (score >= 60) {
+  if (hasGps || score >= 60) {
     riskLevel = 'HIGH';
   } else if (score >= 20) {
     riskLevel = 'MEDIUM';
@@ -147,4 +155,20 @@ export function analyzePrivacyRisks(metadata: Record<string, any>): PrivacyRiskR
     hasPersonalInfo,
     hasSoftwareInfo
   };
+}
+
+export function getGpsCoordinates(raw: Record<string, any>): { lat?: number; lon?: number } {
+  const gps = raw.gps || raw.GPS || raw.exif || raw;
+  const coordinate = (value: any, ref: any): number | undefined => {
+    let result = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+    if (Array.isArray(value) && value.length === 3) {
+      const n = (item: any) => Array.isArray(item) ? Number(item[0]) / Number(item[1]) : Number(item);
+      result = n(value[0]) + n(value[1]) / 60 + n(value[2]) / 3600;
+    }
+    if (ref === 'S' || ref === 'W') result = -Math.abs(result);
+    return Number.isFinite(result) ? result : undefined;
+  };
+  const lat = coordinate(raw.latitude ?? gps.latitude ?? gps.GPSLatitude, gps.GPSLatitudeRef);
+  const lon = coordinate(raw.longitude ?? gps.longitude ?? gps.GPSLongitude, gps.GPSLongitudeRef);
+  return { lat: lat !== undefined && Math.abs(lat) <= 90 ? lat : undefined, lon: lon !== undefined && Math.abs(lon) <= 180 ? lon : undefined };
 }

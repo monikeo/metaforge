@@ -1,5 +1,7 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
@@ -18,7 +20,8 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
     files, 
     selectedFileIds, 
     batchBulkEdit, 
-    batchRename 
+    batchRename,
+    isProcessing
   } = useMetaForgeStore();
 
   const [activeTab, setActiveTab] = useState<'metadata' | 'rename'>('metadata');
@@ -38,22 +41,21 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
   const targetCount = targetIds.length;
 
   const handleApplyMetadata = async () => {
-    await batchBulkEdit(targetIds, {
+    const success = await batchBulkEdit(targetIds, {
       copyright: copyright.trim() || undefined,
       artist: artist.trim() || undefined,
-      keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
+      keywords: keywords.trim() || keywordMode === 'replace' ? keywords.split(',').map((k) => k.trim()).filter(Boolean) : undefined,
       keywordMode
     });
-    onClose();
+    if (success) onClose();
   };
 
   const handleApplyRename = async () => {
-    await batchRename(targetIds, template);
-    onClose();
+    if (await batchRename(targetIds, template)) onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={onClose} label="Batch operations" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div className="w-full sm:max-w-xl rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -72,7 +74,8 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            aria-label="Close batch operations"
+            onClick={onClose}
             className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
           >
             <X className="w-4 h-4" />
@@ -169,6 +172,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
               </button>
               <button
                 type="button"
+                disabled={isProcessing || !targetCount}
                 onClick={handleApplyMetadata}
                 className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
@@ -218,6 +222,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
               </button>
               <button
                 type="button"
+                disabled={isProcessing || !targetCount || !template.trim()}
                 onClick={handleApplyRename}
                 className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
@@ -228,6 +233,6 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
           </div>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

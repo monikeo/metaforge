@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local browser QA outputs
+/tests/*.png
+/tests/*.log
+
+# Local browser engines
+/.browser-cache/
+/.tools/

@@ -1,5 +1,7 @@
 'use client';
 
+import { copyText } from '@/lib/clipboard';
+
 import React, { useState } from 'react';
 import { AiWorkflowInfo } from '@/lib/types';
 import { Bot, Copy, Check, ChevronDown, ChevronRight, Terminal, Sparkles, Cpu } from 'lucide-react';
@@ -18,15 +20,15 @@ export default function AIWorkflowDetect({ workflow }: AIWorkflowDetectProps) {
         <Bot className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
         <p className="text-sm font-medium text-neutral-300">No AI Workflow Artifacts Detected</p>
         <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
-          This image appears to be an authentic camera capture or clean raster without ComfyUI, Stable Diffusion, or Midjourney generation chunks.
+          No recognized workflow metadata was found. Missing metadata does not establish whether an image was generated with AI.
         </p>
       </div>
     );
   }
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (workflow.rawWorkflow) {
-      navigator.clipboard.writeText(workflow.rawWorkflow);
+      if (!(await copyText(workflow.rawWorkflow))) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

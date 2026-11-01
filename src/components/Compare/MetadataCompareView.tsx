@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
+import { getGpsCoordinates } from '@/lib/privacy-rules';
 import TagEditorModal from '../Inspector/TagEditorModal';
 import { 
   GitCompare, 
@@ -21,11 +22,15 @@ export default function MetadataCompareView() {
     updateTag,
     setActiveFile,
     setCurrentView,
-    addToast 
   } = useMetaForgeStore();
 
   const fileA = files.find((f) => f.id === compareFileIds[0]) || files[0];
-  const fileB = files.find((f) => f.id === compareFileIds[1]) || files[1] || files[0];
+  const fileB = files.find((f) => f.id === compareFileIds[1] && f.id !== fileA?.id) || files.find((f) => f.id !== fileA?.id);
+  const gpsLabel = (file: typeof fileA | undefined) => {
+    if (!file?.privacyReport.hasGps) return 'None detected';
+    const { lat, lon } = getGpsCoordinates(file.rawMetadata);
+    return lat !== undefined && lon !== undefined ? `GPS Present (${lat.toFixed(6)}, ${lon.toFixed(6)})` : 'GPS Present (Coordinates unavailable)';
+  };
 
   // Inline editing target
   const [editingTarget, setEditingTarget] = useState<{
@@ -57,11 +62,18 @@ export default function MetadataCompareView() {
       getB: () => fileB?.seoData?.title || fileB?.rawMetadata?.iptc?.Headline || '—' 
     },
     { 
-      key: 'Alt Text / Caption', 
+      key: 'Alt Text',
+      section: 'xmp',
+      tagKey: 'altText',
+      getA: () => fileA?.seoData?.altText || '—',
+      getB: () => fileB?.seoData?.altText || '—'
+    },
+    {
+      key: 'Caption',
       section: 'iptc',
       tagKey: 'Caption',
-      getA: () => fileA?.seoData?.altText || fileA?.seoData?.caption || fileA?.rawMetadata?.iptc?.Caption || '—', 
-      getB: () => fileB?.seoData?.altText || fileB?.seoData?.caption || fileB?.rawMetadata?.iptc?.Caption || '—' 
+      getA: () => fileA?.seoData?.caption || fileA?.rawMetadata?.iptc?.Caption || '—',
+      getB: () => fileB?.seoData?.caption || fileB?.rawMetadata?.iptc?.Caption || '—'
     },
     { 
       key: 'Keywords', 
@@ -95,8 +107,8 @@ export default function MetadataCompareView() {
       key: 'GPS Coordinates', 
       section: 'gps',
       tagKey: 'latitude',
-      getA: () => fileA?.privacyReport.hasGps ? `GPS Present (${fileA.rawMetadata?.latitude?.toFixed(4) || 'Coords'})` : 'None (Scrubbed)', 
-      getB: () => fileB?.privacyReport.hasGps ? `GPS Present (${fileB.rawMetadata?.latitude?.toFixed(4) || 'Coords'})` : 'None (Scrubbed)' 
+      getA: () => gpsLabel(fileA),
+      getB: () => gpsLabel(fileB)
     },
     { 
       key: 'Copyright Notice', 
@@ -121,61 +133,31 @@ export default function MetadataCompareView() {
     }
   ];
 
-  const handleCopyFieldAtoB = (fieldKey: string, valA: string) => {
-    if (!fileB || valA === '—') return;
-    if (fieldKey === 'Copyright Notice') {
-      updateTag(fileB.id, 'exif', 'Copyright', valA);
-      updateTag(fileB.id, 'iptc', 'CopyrightNotice', valA);
-    } else if (fieldKey === 'Artist / Author') {
-      updateTag(fileB.id, 'exif', 'Artist', valA);
-      updateTag(fileB.id, 'iptc', 'Byline', valA);
-    } else if (fieldKey === 'Title') {
-      updateTag(fileB.id, 'iptc', 'Headline', valA);
-    } else if (fieldKey === 'Alt Text / Caption') {
-      updateTag(fileB.id, 'iptc', 'Caption', valA);
-    } else if (fieldKey === 'Keywords') {
-      const arr = valA.split(',').map((s) => s.trim()).filter(Boolean);
-      updateTag(fileB.id, 'iptc', 'Keywords', arr);
-    } else if (fieldKey === 'Lens Specification') {
-      updateTag(fileB.id, 'exif', 'LensModel', valA);
-    } else if (fieldKey === 'Camera Make & Model' && fileA?.rawMetadata?.exif?.Model) {
-      updateTag(fileB.id, 'exif', 'Model', fileA.rawMetadata.exif.Model);
-      if (fileA.rawMetadata.exif.Make) updateTag(fileB.id, 'exif', 'Make', fileA.rawMetadata.exif.Make);
+  const transferable = (key: string) => !['Exposure / ISO / Aperture', 'GPS Coordinates', 'Dimensions & Format'].includes(key);
+  const transfer = async (key: string, source: typeof fileA | undefined, destination: typeof fileB) => {
+    if (!source || !destination || source.id === destination.id || !transferable(key)) return;
+    const field = comparisonFields.find((field) => field.key === key);
+    if (!field) return;
+    if (key === 'Camera Make & Model') {
+      for (const tag of ['Make', 'Model']) {
+        if (!await updateTag(destination.id, 'exif', tag, source.rawMetadata.exif?.[tag] ?? '')) break;
+      }
+      return;
     }
-    addToast({
-      type: 'info',
-      title: 'Field Transferred',
-      description: `Copied "${fieldKey}" to Asset B.`
-    });
+    const fallback: Record<string, unknown> = {
+      Title: source.seoData.title,
+      'Alt Text': source.seoData.altText,
+      Caption: source.seoData.caption,
+      Keywords: source.seoData.keywords || [],
+      'Copyright Notice': source.rawMetadata.iptc?.CopyrightNotice || source.rawMetadata.xmp?.rights,
+      'Artist / Author': source.rawMetadata.iptc?.Byline || source.rawMetadata.xmp?.creator
+    };
+    const value = source.rawMetadata[field.section]?.[field.tagKey] ?? fallback[key] ?? '';
+    await updateTag(destination.id, field.section, field.tagKey, value);
   };
-
-  const handleCopyFieldBtoA = (fieldKey: string, valB: string) => {
-    if (!fileA || valB === '—') return;
-    if (fieldKey === 'Copyright Notice') {
-      updateTag(fileA.id, 'exif', 'Copyright', valB);
-      updateTag(fileA.id, 'iptc', 'CopyrightNotice', valB);
-    } else if (fieldKey === 'Artist / Author') {
-      updateTag(fileA.id, 'exif', 'Artist', valB);
-      updateTag(fileA.id, 'iptc', 'Byline', valB);
-    } else if (fieldKey === 'Title') {
-      updateTag(fileA.id, 'iptc', 'Headline', valB);
-    } else if (fieldKey === 'Alt Text / Caption') {
-      updateTag(fileA.id, 'iptc', 'Caption', valB);
-    } else if (fieldKey === 'Keywords') {
-      const arr = valB.split(',').map((s) => s.trim()).filter(Boolean);
-      updateTag(fileA.id, 'iptc', 'Keywords', arr);
-    } else if (fieldKey === 'Lens Specification') {
-      updateTag(fileA.id, 'exif', 'LensModel', valB);
-    } else if (fieldKey === 'Camera Make & Model' && fileB?.rawMetadata?.exif?.Model) {
-      updateTag(fileA.id, 'exif', 'Model', fileB.rawMetadata.exif.Model);
-      if (fileB.rawMetadata.exif.Make) updateTag(fileA.id, 'exif', 'Make', fileB.rawMetadata.exif.Make);
-    }
-    addToast({
-      type: 'info',
-      title: 'Field Transferred',
-      description: `Copied "${fieldKey}" to Asset A.`
-    });
-  };
+  const handleCopyFieldAtoB = (key: string, _value: string) => transfer(key, fileA, fileB);
+  const handleCopyFieldBtoA = (key: string, _value: string) => transfer(key, fileB, fileA);
+  const initialValue = (field: typeof comparisonFields[number], file: typeof fileA, fallback: string) => file?.rawMetadata[field.section]?.[field.tagKey] ?? (fallback === '—' ? '' : fallback);
 
   const handleOpenStudio = (fileId: string) => {
     setActiveFile(fileId);
@@ -286,7 +268,7 @@ export default function MetadataCompareView() {
             const valA = field.getA();
             const valB = field.getB();
             const isMatch = valA === valB;
-            const isEditable = field.section !== 'file';
+            const isEditable = transferable(field.key) && field.key !== 'Camera Make & Model';
 
             return (
               <div
@@ -308,11 +290,12 @@ export default function MetadataCompareView() {
                   </span>
                   {isEditable && fileA && (
                     <button
+                      aria-label={`Edit ${field.key} on Asset A`}
                       onClick={() => setEditingTarget({
                         fileId: fileA.id,
                         section: field.section,
                         tagKey: field.tagKey,
-                        initialValue: valA === '—' ? '' : valA
+                        initialValue: initialValue(field, fileA, valA)
                       })}
                       title={`Edit ${field.key} on Asset A`}
                       className="p-1 rounded text-neutral-500 hover:text-purple-400 hover:bg-neutral-800 shrink-0"
@@ -323,8 +306,8 @@ export default function MetadataCompareView() {
                 </div>
 
                 {/* Sync Buttons */}
-                <div className="col-span-1 flex items-center justify-center gap-1">
-                  {!isMatch && (
+                <div className="col-span-1 flex flex-col xl:flex-row items-center justify-center gap-1">
+                  {!isMatch && transferable(field.key) && (
                     <>
                       <button
                         onClick={() => handleCopyFieldAtoB(field.key, valA)}
@@ -358,11 +341,12 @@ export default function MetadataCompareView() {
                   </span>
                   {isEditable && fileB && (
                     <button
+                      aria-label={`Edit ${field.key} on Asset B`}
                       onClick={() => setEditingTarget({
                         fileId: fileB.id,
                         section: field.section,
                         tagKey: field.tagKey,
-                        initialValue: valB === '—' ? '' : valB
+                        initialValue: initialValue(field, fileB, valB)
                       })}
                       title={`Edit ${field.key} on Asset B`}
                       className="p-1 rounded text-neutral-500 hover:text-blue-400 hover:bg-neutral-800 shrink-0"
@@ -383,7 +367,7 @@ export default function MetadataCompareView() {
           const valA = field.getA();
           const valB = field.getB();
           const isMatch = valA === valB;
-          const isEditable = field.section !== 'file';
+          const isEditable = transferable(field.key) && field.key !== 'Camera Make & Model';
 
           return (
             <div
@@ -416,7 +400,7 @@ export default function MetadataCompareView() {
                         fileId: fileA.id,
                         section: field.section,
                         tagKey: field.tagKey,
-                        initialValue: valA === '—' ? '' : valA
+                        initialValue: initialValue(field, fileA, valA)
                       })}
                       className="text-[11px] text-purple-400 hover:text-white flex items-center gap-1 touch-target sm:min-h-0"
                     >
@@ -429,7 +413,7 @@ export default function MetadataCompareView() {
               </div>
 
               {/* Sync Actions (if differed) */}
-              {!isMatch && (
+              {!isMatch && transferable(field.key) && (
                 <div className="flex items-center justify-center gap-2 py-1">
                   <button
                     onClick={() => handleCopyFieldAtoB(field.key, valA)}
@@ -458,7 +442,7 @@ export default function MetadataCompareView() {
                         fileId: fileB.id,
                         section: field.section,
                         tagKey: field.tagKey,
-                        initialValue: valB === '—' ? '' : valB
+                        initialValue: initialValue(field, fileB, valB)
                       })}
                       className="text-[11px] text-blue-400 hover:text-white flex items-center gap-1 touch-target sm:min-h-0"
                     >
@@ -481,15 +465,7 @@ export default function MetadataCompareView() {
           section={editingTarget.section}
           tagKey={editingTarget.tagKey}
           initialValue={editingTarget.initialValue}
-          onSave={async (sec, key, val) => {
-            await updateTag(editingTarget.fileId, sec, key, val);
-            addToast({
-              type: 'success',
-              title: 'Tag Updated',
-              description: `Updated ${sec}.${key} successfully.`
-            });
-            setEditingTarget(null);
-          }}
+          onSave={(sec, key, val) => updateTag(editingTarget.fileId, sec, key, val)}
           onClose={() => setEditingTarget(null)}
         />
       )}

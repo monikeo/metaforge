@@ -11,7 +11,7 @@ export default function Dropzone() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (fileList: FileList | null) => {
-    if (!fileList || !fileList.length) return;
+    if (isProcessing || !fileList || !fileList.length) return;
     const allFiles = Array.from(fileList);
     const validFiles = allFiles.filter(
       (f) => f.type.startsWith('image/') || f.name.match(/\.(jpe?g|png|webp|avif|tiff?|heic)$/i)
@@ -76,6 +76,8 @@ export default function Dropzone() {
 
   return (
     <div
+      role="group"
+      aria-label="Import images"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -84,15 +86,17 @@ export default function Dropzone() {
           ? 'border-purple-500 bg-purple-950/20'
           : 'border-neutral-800 bg-neutral-900/40 hover:border-neutral-700 hover:bg-neutral-900/70'
       }`}
-      onClick={() => fileInputRef.current?.click()}
+      onClick={() => { if (!isProcessing) fileInputRef.current?.click(); }}
     >
       <input
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff"
-        onChange={(e) => handleFiles(e.target.files)}
-        className="hidden"
+        aria-label="Choose image files"
+        disabled={isProcessing}
+        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff,image/heic,image/gif,.heic,.heif"
+        onChange={(e) => { void handleFiles(e.target.files); e.target.value = ''; }}
+        className="sr-only"
       />
 
       <div className="p-3 rounded-2xl bg-neutral-800/80 text-neutral-300 border border-neutral-700 mb-3 group-hover:scale-105 transition">
@@ -103,13 +107,13 @@ export default function Dropzone() {
         Drop images here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
       </h3>
       <p className="text-xs text-neutral-400 mt-1">
-        Supports JPEG, PNG, WebP, AVIF, TIFF • Unlimited multi-file queue
+        Supports JPEG, PNG, WebP, AVIF, TIFF • 100 MB maximum per image
       </p>
 
       {/* Privacy Guarantee Tag */}
       <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
         <ShieldCheck className="w-3.5 h-3.5" />
-        <span>In-Memory Client Engine — 0 Bytes Sent to Server</span>
+        <span>Local metadata tools • AI analysis is optional</span>
       </div>
 
       {/* Quick Sample Buttons */}

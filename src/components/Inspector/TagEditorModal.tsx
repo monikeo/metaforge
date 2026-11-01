@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ModalOverlay from '@/components/ModalOverlay';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Check, Plus } from 'lucide-react';
 
 interface TagEditorModalProps {
@@ -9,7 +11,7 @@ interface TagEditorModalProps {
   tagKey: string;
   initialValue: any;
   isNew?: boolean;
-  onSave: (section: string, key: string, value: any) => void;
+  onSave: (section: string, key: string, value: any) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -33,7 +35,8 @@ export default function TagEditorModal({
   const [val, setVal] = useState(
     typeof initialValue === 'object' ? JSON.stringify(initialValue, null, 2) : String(initialValue ?? '')
   );
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const [prevProps, setPrevProps] = useState({
     isOpen,
@@ -60,16 +63,10 @@ export default function TagEditorModal({
     }
   }
 
-  // Auto-focus input on open
-  useEffect(() => {
-    if (isOpen) {
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
-
-  const commitSave = useCallback(() => {
-    if (!currentKey.trim()) return;
+  const commitSave = useCallback(async () => {
+    if (!currentKey.trim() || isSaving) return;
+    setIsSaving(true);
+    setError('');
     let parsed: any = val;
     if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
       try {
@@ -77,13 +74,16 @@ export default function TagEditorModal({
       } catch {
         parsed = val;
       }
-    } else if (!isNaN(Number(val)) && val.trim() !== '') {
+    } else if (typeof initialValue === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
       parsed = Number(val);
     }
 
-    onSave(currentSection, currentKey.trim(), parsed);
-    onClose();
-  }, [currentKey, val, onSave, currentSection, onClose]);
+    try {
+      if (await onSave(currentSection, currentKey.trim(), parsed)) onClose();
+      else setError('The tag could not be saved. Check the error message and try again.');
+    } catch { setError('The tag could not be saved. Please try again.'); }
+    finally { setIsSaving(false); }
+  }, [currentKey, val, onSave, currentSection, onClose, isSaving, initialValue]);
 
   // Global Esc & Ctrl+Enter keyboard listeners
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function TagEditorModal({
   const suggestions = COMMON_TAG_SUGGESTIONS[currentSection] || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={onClose} label="Edit metadata tag" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -143,7 +143,8 @@ export default function TagEditorModal({
             )}
           </div>
           <button 
-            onClick={onClose} 
+            aria-label="Close tag editor"
+            onClick={onClose}
             className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
           >
             <X className="w-4 h-4" />
@@ -181,8 +182,10 @@ export default function TagEditorModal({
                 <label className="text-xs font-medium text-neutral-400">Tag Identifier</label>
                 <input
                   type="text"
+                  autoFocus
                   required
                   placeholder="e.g. CopyrightNotice, Artist, Keywords..."
+                  aria-label="Tag name"
                   value={currentKey}
                   onChange={(e) => setCurrentKey(e.target.value)}
                   className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
@@ -223,9 +226,10 @@ export default function TagEditorModal({
               </div>
             </div>
             <textarea
-              ref={inputRef}
+              autoFocus={!isNew}
               rows={4}
               required
+              aria-label="Tag value"
               value={val}
               onChange={(e) => setVal(e.target.value)}
               placeholder="Enter tag string, number, or JSON..."
@@ -237,6 +241,7 @@ export default function TagEditorModal({
             </div>
           </div>
 
+          {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
           <div className="flex justify-end items-center gap-2 pt-2 border-t border-neutral-800">
             <button
               type="button"
@@ -247,15 +252,15 @@ export default function TagEditorModal({
             </button>
             <button
               type="submit"
-              disabled={!currentKey.trim()}
+              disabled={!currentKey.trim() || isSaving}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
             >
               <Check className="w-3.5 h-3.5" />
-              {isNew ? 'Create Tag' : 'Save Tag'}
+              {isSaving ? 'Saving…' : isNew ? 'Create Tag' : 'Save Tag'}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { copyText } from '@/lib/clipboard';
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Copy, Check } from 'lucide-react';
 
@@ -37,9 +39,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     }
   };
 
-  private handleCopy = () => {
+  private handleCopy = async () => {
     if (this.state.error) {
-      navigator.clipboard.writeText(`${this.state.error.name}: ${this.state.error.message}\n${this.state.error.stack || ''}`);
+      if (!(await copyText(`${this.state.error.name}: ${this.state.error.message}\n${this.state.error.stack || ''}`))) return;
       this.setState({ copied: true });
       setTimeout(() => this.setState({ copied: false }), 2000);
     }

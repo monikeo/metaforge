@@ -1,5 +1,7 @@
 'use client';
 
+import { copyText } from '@/lib/clipboard';
+
 import React, { useState } from 'react';
 import { Copy, Check, Binary, Search } from 'lucide-react';
 
@@ -13,9 +15,9 @@ export default function RawHexViewer({ hexData, fileName, fileSize }: RawHexView
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState('');
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (hexData) {
-      navigator.clipboard.writeText(hexData);
+      if (!(await copyText(hexData))) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

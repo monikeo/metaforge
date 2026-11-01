@@ -1,0 +1,12 @@
+const {execFileSync}=require('node:child_process');
+const fs=require('node:fs');
+if(process.platform!=='darwin')throw new Error('Apple Simulator setup requires macOS.');
+const runtimes=JSON.parse(execFileSync('xcrun',['simctl','list','devices','available','--json'],{encoding:'utf8'})).devices;
+const devices=Object.entries(runtimes).filter(([runtime])=>runtime.includes('iOS')).flatMap(([,devices])=>devices).filter(device=>device.isAvailable!==false&&device.name.startsWith('iPad'));
+const device=devices.find(device=>device.name.includes('A16'))||devices[0];
+if(!device)throw new Error('No available iPadOS Simulator runtime is installed.');
+if(device.state!=='Booted')execFileSync('xcrun',['simctl','boot',device.udid],{stdio:'inherit',timeout:120000});
+execFileSync('xcrun',['simctl','bootstatus',device.udid,'-b'],{stdio:'inherit',timeout:180000});
+console.log(`Using iPadOS Simulator: ${device.name}`);
+if(!process.env.GITHUB_ENV)throw new Error('Set SAFARI_SIMULATOR_UDID manually outside CI.');
+fs.appendFileSync(process.env.GITHUB_ENV,`SAFARI_SIMULATOR_UDID=${device.udid}\n`);

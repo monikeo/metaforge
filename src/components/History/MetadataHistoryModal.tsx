@@ -1,5 +1,7 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { History, X, RotateCcw, Clock, User, Bot, Sliders, Shield } from 'lucide-react';
@@ -19,7 +21,7 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
   const history = file.history || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={onClose} label="Metadata history" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
       <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -36,7 +38,8 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            aria-label="Close metadata history"
+            onClick={onClose}
             className="p-1.5 text-neutral-400 hover:text-white rounded-lg touch-target sm:min-h-0 sm:min-w-0"
           >
             <X className="w-4 h-4" />
@@ -110,6 +113,6 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

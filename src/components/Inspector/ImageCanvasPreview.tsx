@@ -68,7 +68,8 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (scale <= 1) return;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
@@ -83,19 +84,19 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (isDragging) {
-      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
       setIsDragging(false);
     }
   };
 
   // Touch Swipe for Mobile Navigation (when scale === 1)
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (scale === 1 && e.touches.length === 1) {
+    if (scale === 1 && e.touches.length === 1 && !(e.target as HTMLElement).closest('button')) {
       touchStartRef.current = {
         x: e.touches[0].clientX,
         y: e.touches[0].clientY
       };
-    }
+    } else touchStartRef.current = null;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -152,7 +153,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
                   }
                 }}
                 autoFocus
-                className="px-2.5 py-1 bg-neutral-950 border border-purple-500 rounded-lg text-xs font-bold text-white focus:outline-none w-40 sm:w-56 font-mono min-h-[36px]"
+                className="px-2.5 py-1 bg-neutral-950 border border-purple-500 rounded-lg text-xs font-bold text-white focus:outline-none w-28 sm:w-36 font-mono min-h-[36px]"
               />
               <button
                 onClick={handleSaveName}
@@ -177,7 +178,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
               <span
                 onClick={() => setIsEditingName(true)}
                 title="Click to rename file"
-                className="text-xs font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs cursor-pointer hover:text-purple-300 transition"
+                className="text-xs font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[min(16rem,50vw)] cursor-pointer hover:text-purple-300 transition"
               >
                 {file.name}
               </span>
@@ -203,7 +204,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         </div>
 
         {/* Zoom & Download Toolbar */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+        <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-1.5 min-w-0 max-w-full ml-auto">
           <button
             onClick={handleZoomOut}
             title="Zoom Out"
@@ -249,6 +250,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           </button>
 
           <button
+            aria-label="Download image"
             onClick={() => exportSingle(file.id)}
             className="ml-1 sm:ml-2 flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition shadow-xs min-h-[36px] cursor-pointer touch-press"
           >
@@ -267,8 +269,8 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onDoubleClick={handleDoubleTap}
-        className={`relative w-full h-[250px] xs:h-[290px] sm:h-[360px] md:h-[400px] xl:h-[420px] rounded-xl overflow-hidden bg-black/90 flex items-center justify-center select-none touch-none group shadow-inner ${
-          scale > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+        className={`relative w-full h-[250px] xs:h-[290px] sm:h-[360px] md:h-[400px] xl:h-[420px] rounded-xl overflow-hidden bg-black/90 flex items-center justify-center select-none group shadow-inner ${
+          scale > 1 ? 'cursor-grab active:cursor-grabbing touch-none' : 'cursor-default touch-pan-y'
         }`}
         style={{
           backgroundImage: `

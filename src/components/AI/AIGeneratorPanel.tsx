@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { generateImageSeoMetadata } from '@/lib/ai-service';
 import { 
@@ -28,6 +28,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
     selectedModel, 
     setIsAiSettingsOpen, 
     applyAiSeo, 
+    isProcessing,
     writeSeoToMetadata 
   } = useMetaForgeStore();
 
@@ -36,63 +37,35 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [newKeyword, setNewKeyword] = useState('');
-  const [isSaved, setIsSaved] = useState(false);
+  const [savedVersion, setSavedVersion] = useState('');
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => { request.current?.abort(); }, [fileId, aiEnabled]);
+  const isSaved = savedVersion === fileId + JSON.stringify(file?.seoData);
+
 
   if (!file) return null;
 
   const currentSeo = file.seoData || {};
 
-  // Case 1: AI is globally disabled
-  if (!aiEnabled) {
-    return (
-      <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-center flex flex-col items-center gap-3">
-        <div className="p-2.5 rounded-full bg-neutral-800 text-neutral-400">
-          <Sparkles className="w-5 h-5" />
-        </div>
-        <div>
-          <h4 className="text-sm font-semibold text-neutral-300">AI Assistant is Disabled</h4>
-          <p className="text-xs text-neutral-500 mt-1 max-w-xs">
-            MetaForge is running in 100% offline, privacy-first mode. Turn on the AI toggle in the navigation bar to enable vision-assisted SEO generation.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Case 2: AI is enabled, but no API Key configured
-  if (!geminiApiKey) {
-    return (
-      <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/30 text-center flex flex-col items-center gap-3">
-        <div className="p-2.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
-          <Key className="w-5 h-5" />
-        </div>
-        <div>
-          <h4 className="text-sm font-semibold text-purple-200">Google Gemini Key Needed</h4>
-          <p className="text-xs text-purple-300/70 mt-1 max-w-xs">
-            To use visual SEO analysis and prompt extraction, configure your free Google Gemini API key.
-          </p>
-        </div>
-        <button
-          onClick={() => setIsAiSettingsOpen(true)}
-          className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transition flex items-center gap-1.5"
-        >
-          <Key className="w-3.5 h-3.5" />
-          Add Gemini API Key
-        </button>
-      </div>
-    );
-  }
-
   // Handle Generate with Gemini
   const handleAnalyze = async () => {
+    if (isLoading || !aiEnabled || !geminiApiKey) return;
+    const controller = new AbortController();
+    request.current = controller;
+    const initialDraft = JSON.stringify(file.seoData);
     setIsLoading(true);
     setErrorMsg(null);
     try {
       const blob = file.modifiedBlob || file.originalBlob;
-      const result = await generateImageSeoMetadata(geminiApiKey, blob, selectedModel);
-      applyAiSeo(file.id, result);
+      const result = await generateImageSeoMetadata(geminiApiKey, blob, selectedModel, controller.signal);
+      if (controller.signal.aborted || !useMetaForgeStore.getState().aiEnabled) return;
+      const current = useMetaForgeStore.getState().files.find((f) => f.id === file.id);
+      if (!current || JSON.stringify(current.seoData) !== initialDraft) {
+        setErrorMsg('SEO changed while analysis was running. Generate again to replace the current draft.'); return;
+      }
+      applyAiSeo(file.id, result, 'AI');
     } catch (err: any) {
-      console.error(err);
+      if (controller.signal.aborted) return;
       setErrorMsg(err.message || 'Failed to analyze image with Gemini');
     } finally {
       setIsLoading(false);
@@ -130,15 +103,18 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
   };
 
   const handleSaveToMetadata = async () => {
-    await writeSeoToMetadata(file.id);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+    const version = fileId + JSON.stringify(file.seoData);
+    if (await writeSeoToMetadata(file.id)) setSavedVersion(version);
   };
 
   return (
     <div className="flex flex-col gap-4">
+      {(!aiEnabled || !geminiApiKey) && <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-neutral-400 leading-relaxed">
+        {aiEnabled ? 'Add a Gemini key to generate SEO, or edit the fields below manually.' : 'Manual SEO editing is available offline. Enable AI to generate suggestions from the image.'}
+        <button onClick={() => setIsAiSettingsOpen(true)} className="mt-2 flex items-center gap-1.5 text-purple-300"><Key className="w-3.5 h-3.5" />AI settings</button>
+      </div>}
       {/* Action Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">
             <Sparkles className="w-4 h-4" />
@@ -155,7 +131,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
 
         <button
           onClick={handleAnalyze}
-          disabled={isLoading}
+          disabled={isLoading || !aiEnabled || !geminiApiKey || isProcessing}
           className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 disabled:opacity-50 transition flex items-center gap-1.5"
         >
           {isLoading ? (
@@ -192,6 +168,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
         </div>
         <input
           type="text"
+          aria-label="SEO title"
           value={currentSeo.title || ''}
           onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="e.g. Vintage Leica M6 Film Camera on Mahogany Table"
@@ -209,6 +186,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
         </div>
         <textarea
           rows={2}
+          aria-label="Alt text"
           value={currentSeo.altText || ''}
           onChange={(e) => handleAltTextChange(e.target.value)}
           placeholder="Describe the image content accurately for accessibility and search crawler comprehension..."
@@ -226,6 +204,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
         </div>
         <textarea
           rows={2}
+          aria-label="Caption"
           value={currentSeo.caption || ''}
           onChange={(e) => handleCaptionChange(e.target.value)}
           placeholder="Full editorial caption providing contextual background..."
@@ -243,10 +222,11 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
         <form onSubmit={handleAddKeyword} className="flex gap-2">
           <input
             type="text"
+            aria-label="New keyword"
             value={newKeyword}
             onChange={(e) => setNewKeyword(e.target.value)}
             placeholder="Add keyword + Enter..."
-            className="flex-1 px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500"
+            className="min-w-0 flex-1 px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-purple-500"
           />
           <button
             type="submit"
@@ -306,18 +286,19 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
 
       {/* Write to IPTC/XMP Button */}
       <button
+        disabled={isProcessing || isLoading}
         onClick={handleSaveToMetadata}
         className="w-full py-2.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 hover:border-neutral-600 transition flex items-center justify-center gap-2 shadow-sm"
       >
         {isSaved ? (
           <>
             <Check className="w-4 h-4 text-emerald-400" />
-            <span className="text-emerald-300 font-bold">Written to EXIF/IPTC Tags!</span>
+            <span className="text-emerald-300 font-bold">Saved to Image Metadata</span>
           </>
         ) : (
           <>
             <FileEdit className="w-4 h-4 text-purple-400" />
-            Write SEO Data to IPTC/EXIF Chunks
+            Save SEO to Image
           </>
         )}
       </button>

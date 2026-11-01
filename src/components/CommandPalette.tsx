@@ -1,5 +1,7 @@
 'use client';
 
+import ModalOverlay from '@/components/ModalOverlay';
+
 import React, { useState, useEffect } from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { 
@@ -34,14 +36,20 @@ export default function CommandPalette() {
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [wasOpen, setWasOpen] = useState(false);
+  if (wasOpen !== isCommandPaletteOpen) {
+    setWasOpen(isCommandPaletteOpen);
+    if (isCommandPaletteOpen) { setQuery(''); setSelectedIndex(0); }
+  }
 
   // Global keydown handler for Cmd+K / Ctrl+K and /
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.querySelector('[aria-modal="true"]') && !isCommandPaletteOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen(!isCommandPaletteOpen);
-      } else if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      } else if (e.key === '/' && !(e.target as HTMLElement)?.isContentEditable && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
         e.preventDefault();
         setIsCommandPaletteOpen(true);
       } else if (e.key === 'Escape' && isCommandPaletteOpen) {
@@ -172,11 +180,9 @@ export default function CommandPalette() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={() => setIsCommandPaletteOpen(false)} label="Command menu" className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
       <div 
         className="w-full max-w-xl rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl overflow-hidden flex flex-col"
-        role="dialog"
-        aria-modal="true"
       >
         {/* Search input header */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-neutral-800">
@@ -197,6 +203,7 @@ export default function CommandPalette() {
             Esc
           </kbd>
           <button
+            aria-label="Close command menu"
             onClick={() => setIsCommandPaletteOpen(false)}
             className="p-1 text-neutral-400 hover:text-white"
           >
@@ -211,11 +218,12 @@ export default function CommandPalette() {
               const Icon = item.icon;
               const isSelected = idx === selectedIndex;
               return (
-                <div
+                <button
+                  type="button"
                   key={item.id}
                   onClick={() => handleSelect(idx)}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-xs transition ${
+                  className={`text-left flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer text-xs transition ${
                     isSelected
                       ? 'bg-purple-600/20 text-purple-200 border border-purple-500/30'
                       : 'hover:bg-neutral-800/60 text-neutral-300 border border-transparent'
@@ -228,7 +236,7 @@ export default function CommandPalette() {
                   <span className="text-[10px] font-mono text-neutral-500 uppercase shrink-0">
                     {item.category}
                   </span>
-                </div>
+                </button>
               );
             })
           ) : (
@@ -244,6 +252,6 @@ export default function CommandPalette() {
           <span>MetaForge Command Engine</span>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

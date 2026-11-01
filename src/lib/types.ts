@@ -11,6 +11,7 @@ export interface PrivacyIssue {
 }
 
 export interface PrivacyRiskReport {
+  inspectionWarning?: string;
   score: number; // 0 (safe) to 100 (critical risk)
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   issues: PrivacyIssue[];
@@ -53,6 +54,8 @@ export interface MetadataHistoryItem {
   diffSummary: string;
   previousRaw?: Record<string, any>;
   previousBlob?: Blob | null;
+  previousSeo?: SeoMetadata;
+  previousName?: string;
 }
 
 export interface MetaFile {

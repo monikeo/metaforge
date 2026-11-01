@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { useMetaForgeStore } from '@/lib/store';
 import { BatchJob } from '@/lib/types';
 import { 
@@ -12,129 +12,13 @@ import {
 } from 'lucide-react';
 
 export default function BatchJobsView() {
-  const { 
-    files, 
-    stripAllGps, 
-    batchSanitizeForSocial, 
-    exportAllZip, 
-    addToast 
-  } = useMetaForgeStore();
-
-  const activeTimersRef = useRef<Set<NodeJS.Timeout>>(new Set());
-
-  // Cleanup all timers on unmount
-  useEffect(() => {
-    const timers = activeTimersRef.current;
-    return () => {
-      timers.forEach((t) => clearInterval(t));
-      timers.clear();
-    };
-  }, []);
-
-  // Local active and historical batch jobs
-  const [jobs, setJobs] = useState<BatchJob[]>(() => {
-    const now = Date.now();
-    return [
-      {
-        id: 'job-101',
-        name: 'Batch GPS Coordinate Removal Pipeline',
-        type: 'STRIP_GPS',
-        status: 'COMPLETED',
-        total: 1284,
-        completed: 1284,
-        failed: 0,
-        progress: 100,
-        createdAt: now - 3600000,
-        errors: []
-      },
-      {
-        id: 'job-102',
-        name: 'Google Gemini Vision Alt-Text Generation',
-        type: 'AI_SEO',
-        status: 'COMPLETED',
-        total: 428,
-        completed: 428,
-        failed: 0,
-        progress: 100,
-        createdAt: now - 1800000,
-        errors: []
-      }
-    ];
-  });
-
-  const startNewBatchJob = async (name: string, type: BatchJob['type']) => {
-    const totalCount = files.length || 100;
-    const newJob: BatchJob = {
-      id: `job-${Date.now()}`,
-      name,
-      type,
-      status: 'RUNNING',
-      total: totalCount,
-      completed: 0,
-      failed: 0,
-      progress: 0,
-      createdAt: Date.now(),
-      errors: []
-    };
-
-    setJobs((prev) => [newJob, ...prev]);
-
-    // If files are loaded in studio, trigger real store action
-    if (files.length > 0) {
-      try {
-        if (type === 'STRIP_GPS') {
-          await stripAllGps();
-        } else if (type === 'SANITIZE_SOCIAL') {
-          await batchSanitizeForSocial();
-        } else if (type === 'EXPORT_ZIP') {
-          await exportAllZip();
-        }
-      } catch (err: any) {
-        console.error('Batch job error:', err);
-      }
-    }
-
-    // Animate progress to completion
-    let comp = 0;
-    const interval = setInterval(() => {
-      comp += Math.max(1, Math.floor(totalCount / 5));
-      if (comp >= totalCount) {
-        comp = totalCount;
-        clearInterval(interval);
-        activeTimersRef.current.delete(interval);
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.id === newJob.id
-              ? { ...j, completed: totalCount, progress: 100, status: 'COMPLETED' }
-              : j
-          )
-        );
-        addToast({
-          type: 'success',
-          title: 'Batch Pipeline Finished',
-          description: `${name} processed ${totalCount} image(s) successfully.`
-        });
-      } else {
-        const prog = Math.round((comp / totalCount) * 100);
-        setJobs((prev) =>
-          prev.map((j) =>
-            j.id === newJob.id ? { ...j, completed: comp, progress: prog } : j
-          )
-        );
-      }
-    }, 200);
-
-    activeTimersRef.current.add(interval);
+  const { files, stripAllGps, batchSanitizeForSocial, exportAllZip, batchJobs: jobs, clearCompletedJobs, isProcessing } = useMetaForgeStore();
+  const startNewBatchJob = async (_name: string, type: BatchJob['type']) => {
+    if (type === 'STRIP_GPS') await stripAllGps();
+    else if (type === 'SANITIZE_SOCIAL') await batchSanitizeForSocial();
+    else if (type === 'EXPORT_ZIP') await exportAllZip();
   };
-
-  const handleClearCompleted = () => {
-    setJobs((prev) => prev.filter((j) => j.status === 'RUNNING'));
-    addToast({
-      type: 'info',
-      title: 'Queue Cleaned',
-      description: 'Cleared completed batch job records.'
-    });
-  };
+  const handleClearCompleted = clearCompletedJobs;
 
   return (
     <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
@@ -146,12 +30,13 @@ export default function BatchJobsView() {
             Background Batch Processing Queue
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Asynchronous task queue monitor. High-throughput parallel operations with zero main thread freezes.
+            Asynchronous task queue monitor. Live progress and per-file results for this browser session.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            disabled={isProcessing || files.length === 0}
             onClick={() => startNewBatchJob('Batch GPS Strip Queue', 'STRIP_GPS')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
@@ -160,6 +45,7 @@ export default function BatchJobsView() {
           </button>
 
           <button
+            disabled={isProcessing || files.length === 0}
             onClick={() => startNewBatchJob('Social OPSEC Batch Sanitize', 'SANITIZE_SOCIAL')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
@@ -168,6 +54,7 @@ export default function BatchJobsView() {
           </button>
 
           <button
+            disabled={isProcessing || files.length === 0}
             onClick={() => startNewBatchJob('Package All as Compressed ZIP', 'EXPORT_ZIP')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
           >
@@ -175,20 +62,21 @@ export default function BatchJobsView() {
             Batch ZIP Export
           </button>
 
-          {jobs.some((j) => j.status === 'COMPLETED') && (
+          {jobs.some((j) => j.status !== 'RUNNING' && j.status !== 'QUEUED') && (
             <button
               onClick={handleClearCompleted}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 border border-transparent hover:border-neutral-700 transition cursor-pointer"
               title="Clear completed tasks"
             >
               <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
-              <span>Clear Done</span>
+              <span>Clear Finished</span>
             </button>
           )}
         </div>
       </div>
       {/* Jobs Queue List */}
       <div className="flex flex-col gap-3">
+        {!jobs.length && <p className="p-6 rounded-2xl border border-neutral-800 text-sm text-neutral-400 text-center">No jobs yet. Import images and run a batch operation to see its progress here.</p>}
         {jobs.map((job) => {
           const isRunning = job.status === 'RUNNING';
           const isCompleted = job.status === 'COMPLETED';
@@ -234,6 +122,7 @@ export default function BatchJobsView() {
                 </div>
               </div>
 
+              {job.errors.length > 0 && <ul className="text-xs text-rose-300 break-words space-y-1" aria-label="File errors">{job.errors.map((error, index) => <li key={index}>{error}</li>)}</ul>}
               {/* Progress Bar */}
               <div className="w-full bg-neutral-950 h-2.5 rounded-full overflow-hidden border border-neutral-800">
                 <div

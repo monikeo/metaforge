@@ -18,7 +18,7 @@ export default function SeoPreviewCard({ file }: SeoPreviewCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
       {/* Header & Tabs */}
-      <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
             <Globe className="w-4 h-4" />
@@ -65,7 +65,7 @@ export default function SeoPreviewCard({ file }: SeoPreviewCardProps) {
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-[11px] text-neutral-300 font-medium">example.com</span>
-                <span className="text-[10px] text-neutral-500">https://example.com/images/{file.name}</span>
+                <span className="text-[10px] text-neutral-500 break-all">https://example.com/images/{file.name}</span>
               </div>
             </div>
 

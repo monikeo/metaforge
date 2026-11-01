@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { SeoMetadata } from './types';
+import { DEFAULT_GEMINI_MODEL } from './ai-models';
 
 export function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -19,17 +20,19 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    const timer = setTimeout(() => { URL.revokeObjectURL(url); reject(new Error('Image decoding timed out.')); }, 20000);
 
     img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
+      clearTimeout(timer); URL.revokeObjectURL(url);
+      try {
+      let { naturalWidth: width, naturalHeight: height } = img;
+      if (!width || !height) throw new Error('Image dimensions unavailable.');
       if (width > maxDimension || height > maxDimension) {
         if (width > height) {
-          height = Math.round((height * maxDimension) / width);
+          height = Math.max(1, Math.round((height * maxDimension) / width));
           width = maxDimension;
         } else {
-          width = Math.round((width * maxDimension) / height);
+          width = Math.max(1, Math.round((width * maxDimension) / height));
           height = maxDimension;
         }
       }
@@ -46,11 +49,12 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       const base64Data = dataUrl.split(',')[1];
       resolve({ base64Data, mimeType: 'image/jpeg' });
+      } catch (error) { reject(error); }
     };
 
-    img.onerror = (err) => {
-      URL.revokeObjectURL(url);
-      reject(err);
+    img.onerror = () => {
+      clearTimeout(timer); URL.revokeObjectURL(url);
+      reject(new Error('This browser cannot decode the image for AI analysis. Convert it to PNG or JPEG first.'));
     };
 
     img.src = url;
@@ -60,33 +64,38 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
 /**
  * Auto-diagnoses raw Gemini API / network errors into actionable descriptions
  */
-function classifyGeminiError(err: any): Error {
+export function classifyGeminiError(err: any): Error {
   const msg = String(err?.message || err || '');
-  const status = err?.status || err?.statusCode || 0;
+  const status = Number(err?.status || err?.statusCode || 0);
 
-  if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid') || status === 400 || status === 403) {
+  if (/API_KEY_INVALID|API key not valid/i.test(msg) || status === 401) {
     return new Error('Invalid Gemini API Key. Please verify or re-enter your key in AI Settings (⌘K).');
   }
-  if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || status === 429) {
-    return new Error('Gemini API rate limit exceeded. Please wait a few seconds before generating again.');
+  if (/RESOURCE_EXHAUSTED|quota/i.test(msg) || status === 429) {
+    return new Error('Gemini API rate limit exceeded. Check your project quota and billing, then wait before trying again.');
   }
+  if (status === 403) return new Error('Gemini API access denied. Check API key restrictions, project permissions, and regional availability.');
+  if (status === 402) return new Error('Gemini billing credits are unavailable. Check the billing settings for your API project.');
+  if (status === 408 || /timeout|timed out/i.test(msg)) return new Error('Gemini analysis timed out. Try again with a smaller image or check your connection.');
+  if (status >= 500) return new Error('Google Gemini is temporarily unavailable. Please try again later.');
   if (msg.includes('SAFETY') || msg.includes('blocked') || msg.includes('HARM_CATEGORY')) {
     return new Error('Image analysis blocked by Gemini safety filters (contains sensitive content).');
   }
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('offline')) {
+  if (/Failed to fetch|NetworkError|offline|Load failed|network connection/i.test(msg)) {
     return new Error('Network connection to Google Gemini endpoint failed. Check your internet connection.');
   }
-  if (msg.includes('not found') || msg.includes('model') || status === 404) {
-    return new Error('Requested Gemini model not available on your API key tier. Try switching to gemini-2.5-flash.');
+  if (status === 404 || /model.*(?:not found|not available|not supported)/i.test(msg)) {
+    return new Error(`Requested Gemini model is unavailable for this API project. Try ${DEFAULT_GEMINI_MODEL} in AI Settings.`);
   }
 
-  return new Error(`Gemini Vision analysis error: ${msg || 'Unknown failure'}`);
+  return new Error('Gemini could not analyze the image. Check your API configuration and try again.');
 }
 
 export async function generateImageSeoMetadata(
   apiKey: string,
   imageBlob: Blob,
-  modelName = 'gemini-2.5-flash'
+  modelName: string = DEFAULT_GEMINI_MODEL,
+  signal?: AbortSignal
 ): Promise<SeoMetadata> {
   if (!apiKey || !apiKey.trim()) {
     throw new Error('Google Gemini API Key is required. Please add your key in AI Settings.');
@@ -94,19 +103,10 @@ export async function generateImageSeoMetadata(
 
   const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
   
-  // Prepare optimized image payload
-  let base64Data: string;
-  let mimeType: string;
-
-  try {
-    const prepared = await prepareImageForAi(imageBlob);
-    base64Data = prepared.base64Data;
-    mimeType = prepared.mimeType;
-  } catch {
-    const buffer = await imageBlob.arrayBuffer();
-    base64Data = bufferToBase64(buffer);
-    mimeType = imageBlob.type || 'image/jpeg';
-  }
+  if (signal?.aborted) throw new DOMException('Analysis cancelled.', 'AbortError');
+  // Re-encoding removes source metadata before any image is sent to Google.
+  const { base64Data, mimeType } = await prepareImageForAi(imageBlob);
+  if (signal?.aborted) throw new DOMException('Analysis cancelled.', 'AbortError');
 
   const prompt = `You are an elite Digital Asset Management (DAM) & Image SEO specialist.
 Analyze this image thoroughly. Produce search-optimized metadata and identify sensitive privacy flags.
@@ -140,33 +140,44 @@ Respond in strict JSON format with this exact JSON schema:
         }
       ],
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        abortSignal: signal,
+        httpOptions: { timeout: 45000, retryOptions: { attempts: 1 } }
       }
     });
   } catch (apiErr: any) {
-    console.error('Gemini generateContent raw error:', apiErr);
+    if (signal?.aborted) throw new DOMException('Analysis cancelled.', 'AbortError');
     throw classifyGeminiError(apiErr);
   }
 
-  let cleanedText = (response?.text || '{}').trim();
+  const blockReason = response?.promptFeedback?.blockReason;
+  if ((blockReason && blockReason !== 'BLOCKED_REASON_UNSPECIFIED') || ['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'IMAGE_SAFETY'].includes(response?.candidates?.[0]?.finishReason)) {
+    throw new Error('Image analysis blocked by Gemini safety filters. Try another image.');
+  }
+  if (response?.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new Error('Gemini returned an incomplete response. Try generating again.');
+  return parseGeminiSeoResponse(response?.text || '');
+}
+
+export function parseGeminiSeoResponse(text: string): SeoMetadata {
+  let cleanedText = text.trim();
   if (cleanedText.startsWith('```')) {
     cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   }
 
   try {
     const parsed = JSON.parse(cleanedText);
+    if (!parsed || typeof parsed !== 'object' || !['title', 'caption', 'altText'].every((key) => typeof parsed[key] === 'string' && parsed[key].trim()) || !Array.isArray(parsed.keywords) || parsed.keywords.some((value: unknown) => typeof value !== 'string')) throw new Error('Invalid SEO fields');
     return {
-      title: parsed.title || '',
-      caption: parsed.caption || '',
-      altText: parsed.altText || '',
-      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+      title: parsed.title.trim().slice(0, 200),
+      caption: parsed.caption.trim().slice(0, 4000),
+      altText: parsed.altText.trim().slice(0, 2000),
+      keywords: [...new Set<string>(parsed.keywords.map((value: string) => value.trim()).filter(Boolean))].slice(0, 30),
       privacyFlags: {
-        containsFaces: Boolean(parsed.privacyFlags?.containsFaces),
-        containsIdentifiableText: Boolean(parsed.privacyFlags?.containsIdentifiableText)
+        containsFaces: parsed.privacyFlags?.containsFaces === true,
+        containsIdentifiableText: parsed.privacyFlags?.containsIdentifiableText === true
       }
     };
-  } catch (err) {
-    console.error('Failed to parse Gemini response as JSON:', cleanedText, err);
+  } catch {
     throw new Error('Could not parse Gemini JSON response structure. Please try generating again.');
   }
 }

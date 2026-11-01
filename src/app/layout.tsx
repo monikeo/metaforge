@@ -1,22 +1,32 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
+import ClientRuntime from '@/components/ClientRuntime';
+import Toasts from '@/components/Toasts';
+import { Suspense } from 'react';
+import WorkspaceNavigation from '@/components/WorkspaceNavigation';
 import './globals.css';
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: './fonts/geist-latin.woff2',
+  weight: '100 900',
   variable: '--font-geist-sans',
-  subsets: ['latin'],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: './fonts/geist-mono-latin.woff2',
+  weight: '100 900',
   variable: '--font-geist-mono',
-  subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
   title: 'MetaForge — Intelligent Image Metadata & SEO Platform',
-  description: 'Inspect, sanitize, enrich, and build image SEO in-browser. 100% private, zero server uploads, powered by client WebAssembly and optional Google Gemini Vision.',
+  description: 'Inspect, sanitize, and edit image metadata locally in your browser, with optional Google Gemini Vision for image SEO.',
   keywords: ['EXIF', 'IPTC', 'XMP', 'Image SEO', 'Metadata Cleaner', 'GPS Remover', 'ComfyUI Workflow', 'Gemini Vision']
 };
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#09090b' };
 
 export default function RootLayout({
   children,
@@ -26,9 +36,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100 selection:bg-purple-500/30 selection:text-purple-200">
+        <ClientRuntime />
+        <Suspense fallback={null}><WorkspaceNavigation /></Suspense>
+        <Toasts />
         {children}
       </body>
     </html>

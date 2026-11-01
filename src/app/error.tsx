@@ -6,10 +6,10 @@ import { RefreshCcw, Home, AlertTriangle } from 'lucide-react';
 
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error('Unhandled runtime error captured by MetaForge boundary:', error);
@@ -39,7 +39,7 @@ export default function GlobalError({
 
         <div className="flex items-center gap-2.5 w-full pt-2">
           <button
-            onClick={() => reset()}
+            onClick={() => retry()}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transition active:scale-95"
           >
             <RefreshCcw className="w-3.5 h-3.5" />
