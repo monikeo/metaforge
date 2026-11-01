@@ -233,7 +233,7 @@ export async function sanitizeViaCanvas(blob: Blob, mimeType = 'image/png', qual
       try {
         if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 64000000) throw new Error('Browser conversion supports images up to 64 megapixels.');
         const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-        const context = canvas.getContext('2d');
+        const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context) throw new Error('Image conversion is unavailable. No changes were made.');
         context.drawImage(image, 0, 0);
         resolve(await encodeCanvas(canvas, mimeType, quality));

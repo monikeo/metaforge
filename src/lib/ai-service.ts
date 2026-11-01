@@ -42,7 +42,7 @@ export async function prepareImageForAi(blob: Blob, maxDimension = 1536): Promis
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) {
         reject(new Error('Canvas context unavailable'));
         return;

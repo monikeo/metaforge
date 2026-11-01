@@ -69,10 +69,11 @@ jobs:
       - name: Native macOS Safari
         run: node tests/with-server.cjs tests/safari.cjs
       - name: Boot an iPadOS Simulator
+        id: ipad-setup
         if: ${{ !cancelled() }}
         run: node tests/prepare-apple-simulator.cjs
       - name: Native iPadOS Safari
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.ipad-setup.outcome == 'success' }}
         timeout-minutes: 5
         env:
           SAFARI_TARGET: ipad
