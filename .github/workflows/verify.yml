@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
   quality:
+    concurrency:
+      group: quality-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -27,6 +27,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
   browsers:
+    concurrency:
+      group: browser-${{ matrix.browser }}-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -55,6 +58,9 @@ jobs:
             tests/*.png
             tests/*.log
   native-safari:
+    concurrency:
+      group: safari-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: macos-26-intel
     timeout-minutes: 20
     steps:
