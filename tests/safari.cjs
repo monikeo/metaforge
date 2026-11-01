@@ -28,11 +28,17 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
  const button=text=>visible(By.xpath(`//button[normalize-space(.)=${JSON.stringify(text)}]`));
  const heading=text=>visible(By.xpath(`//*[self::h1 or self::h2 or self::h3][normalize-space(.)=${JSON.stringify(text)}]`));
  const fill=async(selector,value)=>{const element=await css(selector);await element.clear();await element.sendKeys(value)};
- const click=async selector=>(await css(selector)).click();
+ const tap=async element=>{
+  if(isIPad){
+   await driver.executeAsyncScript(function(element,done){element.scrollIntoView({block:'center',inline:'center',behavior:'instant'});requestAnimationFrame(()=>requestAnimationFrame(done))},element);
+   await driver.actions({async:true}).move({origin:element,duration:100}).click().perform();
+  }else await element.click();
+ };
+ const click=async selector=>tap(await css(selector));
  const nav=async(view,desktop,_mobile)=>{
   const width=await driver.executeScript('return innerWidth');
   if(width<768&&view==='jobs'){
-   await(await button('More')).click();await click('[role="dialog"] a[href="/?view=jobs"]');
+   await tap(await button('More'));await click('[role="dialog"] a[href="/?view=jobs"]');
   }else await click(width<768?`nav[aria-label="Mobile Navigation"] a[href="${view==='studio'?'/':'/?view='+view}"]`:`aside a[title="${desktop}"]`);
   await heading({dashboard:'MetaForge SaaS Operations Console',compare:'Compare Requires 2+ Images',presets:'Metadata & SEO Presets Manager',jobs:'Background Batch Processing Queue',studio:'METAFORGE'}[view]);
  };
@@ -55,28 +61,28 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
   await nav('studio','Studio Workstation','Studio');
   console.log('PASS Safari: all workspaces and browser history');
 
-  await(await button('Load Sample (GPS + Sony EXIF)')).click();
+  await tap(await button('Load Sample (GPS + Sony EXIF)'));
   await css('button[aria-label="Download image"]');
   const width=await driver.executeScript('return innerWidth');
-  if(width<768)await(await button('SEO')).click();
-  else if(width<1200)await(await button('AI / SEO')).click();
+  if(width<768)await tap(await button('SEO'));
+  else if(width<1200)await tap(await button('AI / SEO'));
   await fill('input[aria-label="SEO title"]','Safari metadata title');
   await fill('[aria-label="Alt text"]','Safari accessible alt text');
   await fill('[aria-label="Caption"]','Safari independent caption');
-  await(await button('Save SEO to Image')).click();
+  await tap(await button('Save SEO to Image'));
   await visible(By.xpath('//*[normalize-space(.)="SEO Saved to Image"]'));
-  if(width<768)await(await button('Canvas')).click();
+  if(width<768)await tap(await button('Canvas'));
   const bytes=await driver.executeAsyncScript(function(done){
-   const image=Array.from(document.images).find(img=>img.currentSrc.startsWith('blob:')&&img.getBoundingClientRect().width>100);
+   const image=Array.from(document.images).find(img=>img.src.startsWith('blob:')&&img.getBoundingClientRect().width>100);
    if(!image)return done({error:'No visible preview'});
-   fetch(image.currentSrc).then(response=>response.arrayBuffer()).then(buffer=>done({bytes:Array.from(new Uint8Array(buffer))})).catch(error=>done({error:error.message}));
+   fetch(image.src).then(response=>response.arrayBuffer()).then(buffer=>done({bytes:Array.from(new Uint8Array(buffer))})).catch(error=>done({error:error.message}));
   });
   assert.ok(bytes.bytes,bytes.error);assert.ok(Buffer.from(bytes.bytes).includes(Buffer.from('Safari metadata title')));
   console.log('PASS Safari: touch/keyboard editing writes actual image bytes');
-  if(width<768)await(await button('SEO')).click();
+  if(width<768)await tap(await button('SEO'));
   await click('button[title="AI BYOK Settings"]');
   await fill('[aria-label="Gemini API key"]','safari-contract-test-key');
-  await(await button('Save Configuration')).click();
+  await tap(await button('Save Configuration'));
   await driver.executeScript(function(){
    const original=window.fetch.bind(window);window.__qaGeminiMode='quota';
    window.fetch=async(input,init)=>{
@@ -87,11 +93,11 @@ const isIPad=process.env.SAFARI_TARGET==='ipad';
    };
   });
   await fill('[aria-label="SEO title"]','Preserve Safari draft');
-  await(await button('Analyze with Gemini')).click();
+  await tap(await button('Analyze with Gemini'));
   await visible(By.xpath('//*[contains(text(),"Gemini API rate limit exceeded")]'));
   assert.equal(await(await css('[aria-label="SEO title"]')).getAttribute('value'),'Preserve Safari draft');
   await driver.executeScript('window.__qaGeminiMode="valid"');
-  await(await button('Analyze with Gemini')).click();
+  await tap(await button('Analyze with Gemini'));
   await driver.wait(async()=>await(await css('[aria-label="SEO title"]')).getAttribute('value')==='Safari generated title',30000);
   assert.equal(await driver.executeScript('const part=window.__qaGeminiRequest.contents.flatMap(c=>c.parts).find(p=>p.inlineData||p.inline_data);return atob((part.inlineData||part.inline_data).data).includes("Exif"+String.fromCharCode(0,0))'),false);
   console.log('PASS Safari: Gemini quota recovery, preserved draft, valid contract response and metadata-free preview');

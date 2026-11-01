@@ -29,7 +29,11 @@ test('Canvas encoding validates actual bytes and rejects empty or unsupported ou
  const wrongMime=new Blob([jpeg],{type:'image/png'});
  const normalized=await encodeCanvas({toBlob:callback=>callback(wrongMime)},'image/jpeg');
  assert.equal(normalized.type,'image/jpeg');
+ const requested=[];
+ const fallback=await encodeCanvas({toBlob:(callback,type)=>{requested.push(type);callback(type==='image/jpeg'?null:fixture('png','image/png'))}},'image/jpeg');
+ assert.deepEqual(requested,['image/jpeg','image/png']);assert.equal(fallback.type,'image/png');
  await assert.rejects(()=>encodeCanvas({toBlob:callback=>callback(null)}),/could not encode/);
+ await assert.rejects(()=>encodeCanvas({toBlob:(callback,type)=>type==='image/jpeg'?queueMicrotask(()=>callback(null)):(()=>{throw new Error('PNG encoder failed')})()},'image/jpeg'),/PNG encoder failed/);
  await assert.rejects(()=>encodeCanvas({toBlob:callback=>callback(new Blob(['broken']))}),/unsupported image encoding/);
 });
 
