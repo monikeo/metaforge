@@ -242,7 +242,18 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     const current = get().files.find((f) => f.id === before.id);
     if (!current) { if (after.thumbnailUrl !== before.thumbnailUrl) URL.revokeObjectURL(after.thumbnailUrl); return false; }
     if (current.thumbnailUrl !== after.thumbnailUrl) URL.revokeObjectURL(current.thumbnailUrl);
-    set((state) => ({ files: state.files.map((f) => f.id === before.id ? { ...after, id: before.id, originalBlob: before.originalBlob, isDirty: true, history: [snapshot(before, action, actor), ...f.history].slice(0, 50) } : f) }));
+    set((state) => ({ files: state.files.map((file) => {
+      if (file.id !== before.id) return file;
+      const draftChanges = Object.fromEntries(Object.entries(file.seoData || {}).filter(([key, value]) =>
+        JSON.stringify(value) !== JSON.stringify(before.seoData?.[key as keyof SeoMetadata])
+      ));
+      return {
+        ...after, id: before.id, originalBlob: before.originalBlob, isDirty: true,
+        name: file.name !== before.name ? safeFilename(file.name, after.type) : after.name,
+        seoData: { ...after.seoData, ...draftChanges },
+        history: [snapshot(file, action, actor), ...file.history].slice(0, 50)
+      };
+    }) }));
     return true;
   };
   const fromBlob = async (file: MetaFile, blob: Blob): Promise<MetaFile> => {

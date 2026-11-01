@@ -209,4 +209,31 @@ test('Removing and clearing files repairs selection and compare references',()=>
  assert.equal(store.getState().selectedFileIds.length,1);assert.ok(store.getState().compareFileIds.every(id=>!id||store.getState().files.some(f=>f.id===id)));
  store.getState().clearFiles();assert.deepEqual(store.getState().compareFileIds,[null,null]);
 });
+
+for(const operation of ['save','clean'])test(`Edits and renames made during metadata ${operation} remain as unsaved drafts`,async()=>{
+ store.getState().clearFiles();
+ await store.getState().addFiles([fixture('jpg','image/jpeg')]);
+ const id=store.getState().files[0].id;
+ store.getState().applyAiSeo(id,{title:'Saved title',caption:'Saved caption',altText:'Saved alt',keywords:['saved']});
+ if(operation==='clean')assert.equal(await store.getState().writeSeoToMetadata(id),true);
+ const PreviousImage=global.Image;
+ let resume,started;
+ const decoding=new Promise(resolve=>{started=resolve});
+ global.Image=class{set src(_value){this.naturalWidth=16;this.naturalHeight=12;resume=()=>this.onload?.();started()}};
+ try{
+  const saving=operation==='save'?store.getState().writeSeoToMetadata(id):store.getState().stripAllMetadata(id);
+  await Promise.race([decoding,saving.then(()=>{throw new Error('The save did not reach the decoding checkpoint.')})]);
+  store.getState().applyAiSeo(id,{title:'Newer draft',altText:'Newer alt'});
+  store.getState().renameFile(id,'renamed-during-save.jpg');
+  const release=resume;resume=undefined;release();global.Image=PreviousImage;
+  assert.equal(await saving,true);
+  const current=store.getState().files[0];
+  assert.equal(current.seoData.title,'Newer draft');assert.equal(current.seoData.altText,'Newer alt');
+  assert.equal(current.seoData.caption,operation==='save'?'Saved caption':'');assert.equal(current.name,'renamed-during-save.jpg');
+  assert.deepEqual(current.seoData.keywords,operation==='save'?['saved']:[]);
+  assert.equal(current.history[0].previousSeo.title,'Newer draft');
+  const written=await reader.parseDeepMetadata(new File([current.modifiedBlob],current.name,{type:current.type}));
+  assert.equal(written.seoData.title,operation==='save'?'Saved title':'');assert.equal(written.seoData.altText,operation==='save'?'Saved alt':'');
+ }finally{resume?.();global.Image=PreviousImage}
+});
 (async()=>{let failures=0;for(const {name,run} of tests){try{await run();console.log(`PASS ${name}`);}catch(e){failures++;console.error(`FAIL ${name}\n${e.stack}`);}}console.log(`${tests.length-failures}/${tests.length} passed`);process.exit(failures?1:0);})();
