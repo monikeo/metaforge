@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
+import { formatBytes } from '@/lib/format';
 import { 
   Image as ImageIcon, 
   CheckCircle2, 
@@ -18,16 +19,8 @@ import {
 import { createSampleExifImage, createSampleAiPng } from '@/lib/sample-data';
 
 export default function DashboardView() {
-  const { 
-    files, 
-    setCurrentView, 
-    setActiveFile, 
-    addFiles, 
-    addToast,
-    isProcessing,
-    stripAllGps, 
-    batchSanitizeForSocial 
-  } = useMetaForgeStore();
+  const { files, setCurrentView, setActiveFile, addFiles, addToast, isProcessing, stripAllGps, batchSanitizeForSocial } =
+    useMetaForge('files', 'setCurrentView', 'setActiveFile', 'addFiles', 'addToast', 'isProcessing', 'stripAllGps', 'batchSanitizeForSocial');
 
   const total = files.length;
   const processed = files.filter((f) => f.isDirty).length;
@@ -229,13 +222,14 @@ export default function DashboardView() {
         {files.length > 0 ? (
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 overflow-hidden divide-y divide-neutral-800/60">
             {files.slice(0, 6).map((file) => (
-              <div
+              <button
+                type="button"
                 key={file.id}
                 onClick={() => {
                   setActiveFile(file.id);
                   setCurrentView('studio');
                 }}
-                className="flex items-center justify-between p-3 sm:p-4 hover:bg-neutral-850/60 transition cursor-pointer gap-3"
+                className="w-full text-left flex items-center justify-between p-3 sm:p-4 hover:bg-neutral-850/60 transition cursor-pointer gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 rounded-xl overflow-hidden bg-black shrink-0 border border-neutral-800">
@@ -251,7 +245,7 @@ export default function DashboardView() {
                       {file.name}
                     </span>
                     <span className="text-[11px] text-neutral-400 font-mono">
-                      {(file.size / 1024).toFixed(1)} KB • {file.width ? `${file.width}×${file.height} px` : file.type}
+                      {formatBytes(file.size)} • {file.width ? `${file.width}×${file.height} px` : file.type}
                     </span>
                   </div>
                 </div>
@@ -275,8 +269,17 @@ export default function DashboardView() {
 
                   <ArrowRight className="w-4 h-4 text-neutral-600" />
                 </div>
-              </div>
+              </button>
             ))}
+            {files.length > 6 && (
+              <button
+                type="button"
+                onClick={() => setCurrentView('studio')}
+                className="w-full p-3 text-xs text-purple-300 hover:bg-neutral-850/60 transition"
+              >
+                View all {files.length} images in the Studio
+              </button>
+            )}
           </div>
         ) : (
           <div className="p-8 rounded-2xl bg-neutral-900 border border-neutral-800 text-center flex flex-col items-center gap-3">
@@ -287,6 +290,7 @@ export default function DashboardView() {
             </div>
             <button
               onClick={handleLoadSampleDemo}
+              disabled={isProcessing}
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
             >
               Load Demo Images

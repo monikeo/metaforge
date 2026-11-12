@@ -1,9 +1,35 @@
 import exifr from 'exifr';
 import { AiWorkflowInfo, MetaFile } from './types';
 import { analyzePrivacyRisks } from './privacy-rules';
-import { imageFormat, containerPackets, readEmbeddedMetadata } from './metadata-writer';
+import { imageFormat, containerPackets, readEmbeddedSnapshot, readNativeUserComment, firstText, textList, MIRRORED_SNAPSHOT_FIELDS } from './metadata-writer';
 
 const pngWarnings = new WeakMap<Blob, string>();
+
+/**
+ * EXIF UserComment starts with an 8-byte character code. exifr returns the raw bytes as a string,
+ * so UNICODE comments (used by Stable Diffusion WebUI for JPEG parameters) arrive as interleaved NUL bytes.
+ */
+export function decodeUserComment(value: unknown, littleEndian?: boolean): unknown {
+  let bytes: number[];
+  if (typeof value === 'string') {
+    if (!/^(ASCII\0{3}|UNICODE\0|JIS\0{5}|\0{8})/.test(value)) return value;
+    bytes = Array.from(value, (character) => character.charCodeAt(0) & 255);
+  } else if (value instanceof Uint8Array || (Array.isArray(value) && value.every((item) => Number.isInteger(item)))) {
+    bytes = Array.from(value as ArrayLike<number>);
+  } else return value;
+  const prefix = String.fromCharCode(...bytes.slice(0, 8));
+  const body = bytes.slice(8);
+  if (prefix === 'UNICODE\0') {
+    if (body.length % 2) body.push(0);
+    let evenZeros = 0, oddZeros = 0;
+    body.forEach((byte, index) => { if (!byte) { if (index % 2) oddZeros++; else evenZeros++; } });
+    // ASCII-range text reveals its byte order; otherwise follow the TIFF header, as the EXIF spec intends.
+    const encoding = evenZeros === oddZeros ? (littleEndian ? 'utf-16le' : 'utf-16be') : evenZeros > oddZeros ? 'utf-16be' : 'utf-16le';
+    try { return new TextDecoder(encoding).decode(new Uint8Array(body)).replace(/\0+$/, ''); } catch { return value; }
+  }
+  if (prefix.startsWith('ASCII') || prefix === '\0'.repeat(8)) return new TextDecoder().decode(new Uint8Array(body)).replace(/\0+$/, '');
+  return value;
+}
 
 async function inflateText(bytes: Uint8Array): Promise<string> {
   const reader = new Blob([bytes as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new DecompressionStream('deflate')).getReader();
@@ -48,19 +74,33 @@ export async function parsePngTextChunks(file: Blob): Promise<Record<string, str
 }
 
 export function seoFromRaw(raw: Record<string, any>) {
-  const string = (value: any): string => typeof value === 'string' ? value : Array.isArray(value) ? value.map(string).filter(Boolean).join(', ') : value && typeof value === 'object' ? string(value['x-default'] ?? value.value ?? Object.values(value)[0]) : '';
-  const keywords = raw.iptc?.Keywords ?? raw.xmp?.subject ?? [];
+  const keywords = [raw.iptc?.Keywords, raw.xmp?.subject].map(textList).find((list) => list.length) ?? [];
   return {
-    title: string(raw.iptc?.Headline ?? raw.iptc?.ObjectName ?? raw.xmp?.title),
-    caption: string(raw.iptc?.Caption ?? raw.xmp?.description ?? raw.exif?.ImageDescription),
-    altText: string(raw.xmp?.altText ?? raw.xmp?.AltTextAccessibility),
-    keywords: (Array.isArray(keywords) ? keywords : [keywords]).map(string).filter(Boolean)
+    title: firstText(raw.iptc?.Headline, raw.iptc?.ObjectName, raw.xmp?.title, raw.xmp?.Headline),
+    caption: firstText(raw.iptc?.Caption, raw.xmp?.description, raw.exif?.ImageDescription),
+    altText: firstText(raw.xmp?.altText, raw.xmp?.AltTextAccessibility),
+    keywords: [...new Set(keywords)]
   };
+}
+
+// Blocks exifr returns for containers and IFDs. Every other top-level block is an XMP namespace (dc, photoshop, Iptc4xmpCore...).
+const NON_XMP_BLOCKS = new Set(['ifd0', 'ifd1', 'exif', 'gps', 'interop', 'iptc', 'icc', 'jfif', 'ihdr', 'makerNote', 'userComment', 'xmp', 'thumbnail', 'pngChunks', 'file']);
+/** With mergeOutput disabled, exifr reports each XMP namespace separately. The app reads them from one xmp block. */
+function foldXmpNamespaces(raw: Record<string, any>): void {
+  const xmp: Record<string, any> = { ...(raw.xmp && typeof raw.xmp === 'object' ? raw.xmp : {}) };
+  for (const [key, value] of Object.entries(raw)) {
+    if (NON_XMP_BLOCKS.has(key) || !value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) continue;
+    delete raw[key];
+    if (key === 'mf') continue; // MetaForge's own snapshot is read and validated separately.
+    for (const [field, item] of Object.entries(value)) if (!(field in xmp)) xmp[field] = item;
+  }
+  if (Object.keys(xmp).length) raw.xmp = xmp;
 }
 
 export function detectAiWorkflow(metadata: any, pngChunks: Record<string, string> = {}): AiWorkflowInfo {
   metadata = { ...metadata, ...metadata?.exif, ...metadata?.xmp };
-  if (Array.isArray(metadata.UserComment)) metadata.UserComment = new TextDecoder().decode(new Uint8Array(metadata.UserComment)).replace(/^(ASCII|UNICODE)\0*/i, '');
+  if (metadata.UserComment !== undefined) metadata.UserComment = decodeUserComment(metadata.UserComment);
+  if (metadata.userComment !== undefined) metadata.userComment = decodeUserComment(metadata.userComment);
   // Combine all searchable strings
   const combined = {
     ...metadata,
@@ -224,7 +264,7 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
   if (file.size > 100 * 1024 * 1024) throw new Error('Images must be 100 MB or smaller.');
   const buffer = await file.arrayBuffer();
   const format = imageFormat(new Uint8Array(buffer));
-  const embedded = readEmbeddedMetadata(new Uint8Array(buffer));
+  const embedded = readEmbeddedSnapshot(new Uint8Array(buffer));
   const hexSample = generateHexSample(buffer, 4096);
 
   // Parse PNG chunks if PNG
@@ -283,10 +323,23 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
   }
   rawMetadata.exif = { ...rawMetadata.ifd0, ...rawMetadata.exif };
   delete rawMetadata.ifd0;
+  foldXmpNamespaces(rawMetadata);
   delete rawMetadata.xmp?.Metadata;
+  const nativeComment = typeof rawMetadata.exif.UserComment === 'string' && rawMetadata.exif.UserComment.startsWith('UNICODE') ? readNativeUserComment(new Uint8Array(buffer)) : null;
+  if (nativeComment) rawMetadata.exif.UserComment = decodeUserComment(nativeComment.binary, nativeComment.littleEndian);
+  for (const block of [rawMetadata.exif, rawMetadata]) {
+    for (const key of ['UserComment', 'userComment']) if (block?.[key] !== undefined) block[key] = decodeUserComment(block[key]);
+  }
+  if (nativeComment && rawMetadata.userComment !== undefined) rawMetadata.userComment = rawMetadata.exif.UserComment;
   const nativeMetadata = structuredClone(rawMetadata);
   if (embedded) {
-    for (const key of Object.keys(embedded)) rawMetadata[key] = { ...rawMetadata[key], ...embedded[key] };
+    const { metadata, exifChanged, xmpChanged } = embedded;
+    // Another tool rewrote the visible XMP fields after MetaForge saved them, so those native values win.
+    if (xmpChanged) for (const [section, fields] of Object.entries(MIRRORED_SNAPSHOT_FIELDS)) for (const field of fields) delete metadata[section]?.[field];
+    for (const key of Object.keys(metadata)) {
+      if (exifChanged && (key === 'exif' || key === 'gps')) continue;
+      rawMetadata[key] = { ...rawMetadata[key], ...metadata[key] };
+    }
   }
 
   // If PNG text chunks found, augment XMP/custom metadata
@@ -328,7 +381,7 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
   const seoData = seoFromRaw(rawMetadata);
 
   return {
-    id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: crypto.randomUUID(),
     name: file.name,
     size: file.size,
     type: format,
@@ -346,7 +399,7 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
     isDirty: false,
     history: [
       {
-        id: `hist-init-${Date.now()}`,
+        id: crypto.randomUUID(),
         timestamp: Date.now(),
         actor: 'System' as const,
         action: 'Imported File',

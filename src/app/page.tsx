@@ -22,7 +22,10 @@ import DashboardView from '@/components/Dashboard/DashboardView';
 import MetadataCompareView from '@/components/Compare/MetadataCompareView';
 import PresetsView from '@/components/Presets/PresetsView';
 import BatchJobsView from '@/components/Jobs/BatchJobsView';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
+import { useLayoutMode } from '@/lib/use-layout-mode';
+import { filesFromDataTransfer, importImageFiles, isImageFile, namePastedImages } from '@/lib/import-files';
+import { firstText } from '@/lib/metadata-writer';
 import { 
   FileText, 
   ShieldAlert, 
@@ -46,16 +49,9 @@ import {
 } from 'lucide-react';
 
 export default function MetaForgeStudio() {
-  const { 
-    files, 
-    currentView,
-    activeFileId, 
-    setActiveFile,
-    activeTab, 
-    setActiveTab,
-    stripAllGps,
-    exportSingle
-  } = useMetaForgeStore();
+  const { files, currentView, activeFileId, setActiveFile, activeTab, setActiveTab, stripGps, exportSingle, isProcessing } =
+    useMetaForge('files', 'currentView', 'activeFileId', 'setActiveFile', 'activeTab', 'setActiveTab', 'stripGps', 'exportSingle', 'isProcessing');
+  const layout = useLayoutMode();
 
   // Mobile dedicated section switcher (< 768px)
   const [mobileSection, setMobileSection] = useState<'canvas' | 'tags' | 'privacy' | 'seo' | 'queue'>('canvas');
@@ -65,8 +61,38 @@ export default function MetaForgeStudio() {
   const [desktopStudioTab, setDesktopStudioTab] = useState<'seo' | 'privacy' | 'sitemap'>('seo');
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
-  const activeIndex = files.findIndex((f) => f.id === activeFileId);
-  const activeFile = files[activeIndex] || files[0];
+  const activeIndex = Math.max(0, files.findIndex((f) => f.id === activeFileId));
+  const activeFile = files[activeIndex];
+
+  // Paste screenshots or copied images anywhere in the studio (outside text fields and dialogs).
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('[aria-modal="true"]')) return;
+      const images = Array.from(event.clipboardData?.files || []).filter(isImageFile);
+      if (!images.length) return;
+      event.preventDefault();
+      void importImageFiles(namePastedImages(images));
+    };
+    // Files dropped outside the drop zone would otherwise make the browser leave the page and discard the session.
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types || []).includes('Files');
+    const handleDragOver = (event: DragEvent) => { if (hasFiles(event)) event.preventDefault(); };
+    const handleDrop = (event: DragEvent) => {
+      if (!hasFiles(event)) return;
+      const handledByDropzone = event.defaultPrevented;
+      event.preventDefault();
+      if (handledByDropzone || document.querySelector('[aria-modal="true"]')) return;
+      void filesFromDataTransfer(event.dataTransfer).then(importImageFiles);
+    };
+    window.addEventListener('paste', handlePaste);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
 
   // Keyboard navigation across images
   useEffect(() => {
@@ -268,6 +294,7 @@ export default function MetaForgeStudio() {
                     1. NATIVE MOBILE EXPERIENCE (< 768px / md)
                     Purpose-built native phone view with dedicated tabs & swipe gestures
                    ========================================================================= */}
+                {layout === 'mobile' && (
                 <div className="md:hidden flex flex-col flex-1 min-w-0 p-3 gap-3">
                   {/* Mobile Compact File Bar */}
                   <div className="flex items-center justify-between p-2 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-md">
@@ -374,7 +401,7 @@ export default function MetaForgeStudio() {
                       }`}
                     >
                       <span>Queue</span>
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
+                      <span className="px-1.5 py-px rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
                         {files.length}
                       </span>
                     </button>
@@ -416,7 +443,7 @@ export default function MetaForgeStudio() {
                             <div className="flex flex-col">
                               <span className="text-neutral-500">Copyright</span>
                               <span className="text-neutral-200 truncate">
-                                {activeFile.rawMetadata?.iptc?.CopyrightNotice || 'None set'}
+                                {firstText(activeFile.rawMetadata?.exif?.Copyright, activeFile.rawMetadata?.iptc?.CopyrightNotice, activeFile.rawMetadata?.xmp?.rights) || 'None set'}
                               </span>
                             </div>
                             <div className="flex flex-col">
@@ -477,11 +504,12 @@ export default function MetaForgeStudio() {
                     {mobileSection === 'privacy' ? (
                       <>
                         <button
-                          onClick={stripAllGps}
+                          onClick={() => stripGps(activeFile.id)}
+                          disabled={isProcessing || !activeFile.privacyReport.hasGps}
                           className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 touch-press shadow-md"
                         >
                           <MapPinOff className="w-3.5 h-3.5" />
-                          <span>Strip GPS Losslessly</span>
+                          <span>{activeFile.privacyReport.hasGps ? 'Strip GPS From This Image' : 'No GPS In This Image'}</span>
                         </button>
                       </>
                     ) : (
@@ -505,11 +533,13 @@ export default function MetaForgeStudio() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* =========================================================================
-                    2. TABLET EXPERIENCE (768px - 1199px / md to xl)
+                    2. TABLET EXPERIENCE (768px - 1279px / md to xl)
                     2-Column Split Workstation with Independent Panes
                    ========================================================================= */}
+                {layout === 'tablet' && (
                 <div className="hidden md:flex xl:hidden flex-1 min-w-0 p-4 gap-4 min-h-0 overflow-hidden">
                   {/* Left Column (5 cols, 42%): Filmstrip & Canvas Preview */}
                   <div className="w-[42%] min-w-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1">
@@ -630,11 +660,13 @@ export default function MetaForgeStudio() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* =========================================================================
-                    3. NATIVE DESKTOP EXPERIENCE (≥ 1200px / xl / 2xl)
+                    3. NATIVE DESKTOP EXPERIENCE (≥ 1280px / xl / 2xl)
                     3-Column Workstation Layout with Independent Panes & No Infinite Scroll
                    ========================================================================= */}
+                {layout === 'desktop' && (
                 <div className="hidden xl:flex flex-col flex-1 min-w-0 p-4 gap-3 min-h-0 overflow-hidden">
                   
                   {/* Desktop Workstation Toolbar */}
@@ -855,6 +887,7 @@ export default function MetaForgeStudio() {
                     </aside>
                   </div>
                 </div>
+                )}
               </div>
             )
           )}

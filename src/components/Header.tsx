@@ -5,19 +5,20 @@ import ModalOverlay from '@/components/ModalOverlay';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMetaForgeStore } from '@/lib/store';
-import { 
-  Sparkles, 
-  ShieldCheck, 
-  Settings2, 
-  Download, 
-  MapPinOff, 
-  Flame, 
-  Shield, 
-  Layers, 
-  Info, 
-  BookOpen, 
+import { useMetaForge } from '@/lib/store';
+import {
+  Sparkles,
+  ShieldCheck,
+  Settings2,
+  Download,
+  MapPinOff,
+  Flame,
+  Shield,
+  Layers,
+  Info,
+  BookOpen,
   FileCode,
+  FileSpreadsheet,
   Zap,
   X
 } from 'lucide-react';
@@ -26,22 +27,14 @@ export default function Header() {
   const pathname = usePathname();
   const [mobileQuickActionsOpen, setMobileQuickActionsOpen] = useState(false);
 
-  const { 
-    files, 
-    currentView,
-    setCurrentView,
-    aiEnabled, 
-    toggleAI, 
-    setIsAiSettingsOpen, 
-    stripAllGps, 
-    batchSanitizeForSocial, 
-    exportAllZip, 
-    exportAllMetadataJson, 
-    isProcessing, 
-    processingMessage 
-  } = useMetaForgeStore();
+  const {
+    files, currentView, setCurrentView, aiEnabled, toggleAI, setIsAiSettingsOpen, stripAllGps, batchSanitizeForSocial,
+    exportAllZip, exportAllMetadataJson, exportMetadataCsv, isProcessing, processingMessage, batchJobs, cancelBatch
+  } = useMetaForge('files', 'currentView', 'setCurrentView', 'aiEnabled', 'toggleAI', 'setIsAiSettingsOpen', 'stripAllGps', 'batchSanitizeForSocial',
+    'exportAllZip', 'exportAllMetadataJson', 'exportMetadataCsv', 'isProcessing', 'processingMessage', 'batchJobs', 'cancelBatch');
 
   const gpsCount = files.filter((f) => f.privacyReport.hasGps).length;
+  const batchRunning = batchJobs.some((job) => job.status === 'RUNNING');
 
   return (
     <header className="shrink-0 sticky top-0 z-40 w-full border-b border-neutral-800/80 bg-neutral-950/90 backdrop-blur-md pt-safe">
@@ -60,7 +53,7 @@ export default function Header() {
                 <span className="text-xs min-[400px]:text-sm sm:text-base font-black tracking-wider text-white uppercase font-sans">
                   METAFORGE
                 </span>
-                <span className="hidden xs:inline px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
+                <span className="hidden 2xl:inline px-1.5 py-px rounded text-[9px] sm:text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
                   PRO
                 </span>
               </div>
@@ -118,9 +111,18 @@ export default function Header() {
 
         {/* Center: Global Processing Status or Batch Quick Actions */}
         {isProcessing ? (
-          <div role="status" className="absolute top-full left-3 right-3 md:static flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-500/40 text-purple-200 text-xs animate-pulse mx-auto">
-            <div className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-            <span className="truncate max-w-[180px] sm:max-w-none">{processingMessage || 'Processing in-memory...'}</span>
+          <div className="absolute top-full left-3 right-3 md:static flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-500/40 text-purple-200 text-xs mx-auto min-w-0">
+            <div className="w-2 h-2 shrink-0 rounded-full bg-purple-400 animate-ping" />
+            <span role="status" className="truncate max-w-[180px] sm:max-w-none animate-pulse">{processingMessage || 'Processing in-memory...'}</span>
+            {batchRunning && (
+              <button
+                type="button"
+                onClick={cancelBatch}
+                className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-900/70 hover:bg-rose-600 text-purple-100 border border-purple-400/40 transition"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         ) : (
           pathname === '/' && files.length > 0 && (
@@ -146,7 +148,7 @@ export default function Header() {
                 </button>
 
                 <button
-                  onClick={exportAllZip}
+                  onClick={() => exportAllZip()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs cursor-pointer active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5 text-blue-400" />
@@ -161,6 +163,15 @@ export default function Header() {
                   <FileCode className="w-3.5 h-3.5 text-amber-400" />
                   Export JSON ({files.length})
                 </button>
+
+                <button
+                  onClick={exportMetadataCsv}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs cursor-pointer active:scale-95"
+                  title="Export a spreadsheet of titles, captions, keywords, camera data and privacy findings"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  CSV
+                </button>
               </div>
 
               {/* Mobile & Tablet Quick Actions Trigger Button */}
@@ -172,7 +183,7 @@ export default function Header() {
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
                   <span className="hidden sm:inline">Actions</span>
-                  <span className="hidden min-[400px]:inline px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
+                  <span className="hidden min-[400px]:inline px-1.5 py-px rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
                     {files.length}
                   </span>
                 </button>
@@ -221,7 +232,7 @@ export default function Header() {
 
       {/* Mobile/Tablet Quick Actions Sheet */}
       {mobileQuickActionsOpen && (
-        <ModalOverlay visibleWhen="(max-width: 1439px)" onClose={() => setMobileQuickActionsOpen(false)} label="Quick actions" className="min-[1440px]:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-xs p-3 animate-in fade-in duration-150">
+        <ModalOverlay visibleWhen="(max-width: 1439px)" onClose={() => setMobileQuickActionsOpen(false)} label="Quick actions" className="min-[1440px]:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-xs p-3 animate-fade-in">
           <div className="w-full rounded-3xl bg-neutral-900 border border-neutral-800 p-5 flex flex-col gap-4 shadow-2xl pb-safe">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
@@ -299,6 +310,22 @@ export default function Header() {
                 </span>
                 <span className="font-mono text-[11px] text-neutral-400">
                   .json
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  exportMetadataCsv();
+                  setMobileQuickActionsOpen(false);
+                }}
+                className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-neutral-950 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 flex items-center justify-between touch-target"
+              >
+                <span className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  Export Metadata Spreadsheet
+                </span>
+                <span className="font-mono text-[11px] text-neutral-400">
+                  .csv
                 </span>
               </button>
             </div>

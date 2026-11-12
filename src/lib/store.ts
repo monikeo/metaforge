@@ -1,19 +1,21 @@
 import { create } from 'zustand';
 import { persist, type PersistStorage } from 'zustand/middleware';
-import { 
-  MetaFile, 
-  SeoMetadata, 
-  AppView, 
-  MetadataPreset, 
-  BatchJob, 
-  ToastMessage, 
-  MetadataHistoryItem 
+import { useShallow } from 'zustand/react/shallow';
+import {
+  MetaFile,
+  SeoMetadata,
+  AppView,
+  MetadataPreset,
+  BatchJob,
+  ToastMessage,
+  MetadataHistoryItem
 } from './types';
 import { parseDeepMetadata, seoFromRaw } from './metadata-reader';
-import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, writeTagsToJpeg } from './metadata-writer';
+import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, isExifDateTag, normalizeExifDate, type NativeEdit } from './metadata-writer';
 import { analyzePrivacyRisks } from './privacy-rules';
 import { workspaceHref, workspaceView } from './navigation';
 import { DEFAULT_GEMINI_MODEL, normalizeGeminiModel } from './ai-models';
+import { buildMetadataCsv, metadataJson } from './catalog-export';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -72,6 +74,7 @@ const DEFAULT_PRESETS: MetadataPreset[] = [
     filenameTemplate: 'clean-{date}'
   }
 ];
+export const BUILT_IN_PRESET_IDS = DEFAULT_PRESETS.map((preset) => preset.id);
 
 interface FilterOptions {
   format: string;
@@ -80,7 +83,7 @@ interface FilterOptions {
   aiStatus: string;
 }
 
-interface MetaForgeState {
+export interface MetaForgeState {
   // Navigation & Views
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
@@ -95,6 +98,7 @@ interface MetaForgeState {
   presets: MetadataPreset[];
   batchJobs: BatchJob[];
   clearCompletedJobs: () => void;
+  cancelBatch: () => void;
 
   // Toasts
   toasts: ToastMessage[];
@@ -151,10 +155,11 @@ interface MetaForgeState {
   batchSanitizeForSocial: () => Promise<boolean>;
   applyAiSeo: (fileId: string, seo: SeoMetadata, actor?: 'User' | 'AI') => void;
   writeSeoToMetadata: (fileId: string) => Promise<boolean>;
+  batchGenerateSeo: (fileIds: string[], options?: { save?: boolean; skipComplete?: boolean }) => Promise<boolean>;
 
   // Presets & Batch
   applyPreset: (presetId: string, targetFileIds: string[]) => Promise<boolean>;
-  createPreset: (preset: Omit<MetadataPreset, 'id'>) => void;
+  createPreset: (preset: Omit<MetadataPreset, 'id'>) => boolean;
   deletePreset: (id: string) => void;
   batchBulkEdit: (fileIds: string[], updates: { copyright?: string; artist?: string; keywords?: string[]; keywordMode?: 'append' | 'replace' }) => Promise<boolean>;
   batchRename: (fileIds: string[], template: string) => Promise<boolean>;
@@ -166,9 +171,10 @@ interface MetaForgeState {
 
   // Export
   exportSingle: (fileId: string) => void;
-  exportAllZip: () => Promise<boolean>;
+  exportAllZip: (fileIds?: string[]) => Promise<boolean>;
   exportMetadataJson: (fileId: string) => void;
   exportAllMetadataJson: () => void;
+  exportMetadataCsv: () => void;
 }
 
 const uid = () => crypto.randomUUID();
@@ -182,7 +188,8 @@ export function safeFilename(name: string, type: string): string {
   const base = cleaned.replace(/\.[^.]+$/, '') || 'image';
   return `${/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(base) ? `image-${base}` : base}.${ext}`;
 }
-export function renameFromTemplate(file: MetaFile, template: string, index: number): string {
+const TEMPLATE_TOKENS = ['title', 'artist', 'date', 'counter'] as const;
+export function renameFromTemplate(file: Pick<MetaFile, 'name' | 'type' | 'seoData' | 'rawMetadata'>, template: string, index: number): string {
   if (!template.trim()) throw new Error('Enter a filename template.');
   const slug = (value: string) => value.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'image';
   const tokens: Record<string, string> = {
@@ -191,7 +198,7 @@ export function renameFromTemplate(file: MetaFile, template: string, index: numb
     date: new Date().toISOString().slice(0, 10), counter: String(index + 1).padStart(3, '0')
   };
   if (/\{(?!title\}|artist\}|date\}|counter\})[^}]*\}/.test(template)) throw new Error('Unknown template token. Use {title}, {artist}, {date}, or {counter}.');
-  return safeFilename(template.replace(/\{(title|artist|date|counter)\}/g, (_, key: string) => tokens[key]), file.type);
+  return safeFilename(template.replace(new RegExp(`\\{(${TEMPLATE_TOKENS.join('|')})\\}`, 'g'), (_, key: string) => tokens[key]), file.type);
 }
 export function validatePreset(value: unknown): Omit<MetadataPreset, 'id'> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Each preset must be an object.');
@@ -210,12 +217,52 @@ export function validatePreset(value: unknown): Omit<MetadataPreset, 'id'> {
     if (!Array.isArray(p.tags.keywords) || p.tags.keywords.length > 100 || p.tags.keywords.some((k: unknown) => typeof k !== 'string' || k.length > 200)) throw new Error('Preset keywords must be an array of up to 100 strings.');
     tags.keywords = [...new Set<string>(p.tags.keywords.map((k: string) => k.trim()).filter(Boolean))];
   }
-  if (p.filenameTemplate !== undefined && (typeof p.filenameTemplate !== 'string' || p.filenameTemplate.length > 180)) throw new Error('Invalid filename template.');
+  if (p.filenameTemplate !== undefined && (typeof p.filenameTemplate !== 'string' || p.filenameTemplate.length > 180 || /\{(?!title\}|artist\}|date\}|counter\})[^}]*\}/.test(p.filenameTemplate))) throw new Error('Invalid filename template. Use {title}, {artist}, {date}, or {counter}.');
   return { name: p.name.trim(), category: p.category, description: typeof p.description === 'string' ? p.description.slice(0, 1000) : '', tags, stripGps: p.stripGps, stripSerials: p.stripSerials, filenameTemplate: p.filenameTemplate };
 }
 function snapshot(file: MetaFile, action: string, actor: MetadataHistoryItem['actor'] = 'User'): MetadataHistoryItem {
   return { id: uid(), timestamp: Date.now(), actor, action, diffSummary: action, previousRaw: clone(file.rawMetadata), previousBlob: blobOf(file), previousSeo: clone(file.seoData), previousName: file.name };
 }
+
+type RawMetadata = MetaFile['rawMetadata'];
+/** Equivalent fields across EXIF, IPTC and Dublin Core. Writing one keeps the others consistent. */
+const SYNCED_FIELDS = [
+  [['iptc', 'Headline'], ['iptc', 'ObjectName'], ['xmp', 'title']],
+  [['iptc', 'Caption'], ['xmp', 'description'], ['exif', 'ImageDescription']],
+  [['exif', 'Artist'], ['iptc', 'Byline'], ['xmp', 'creator']],
+  [['exif', 'Copyright'], ['iptc', 'CopyrightNotice'], ['xmp', 'rights']],
+  [['iptc', 'Keywords'], ['xmp', 'subject']]
+] as const;
+const isEmptyValue = (value: unknown) => value === undefined || value === null || (typeof value === 'string' && !value.trim()) || (Array.isArray(value) && !value.length);
+/** Sets (or removes, for empty values) a field and its synced equivalents. Returns the native EXIF writes required. */
+function setSynced(raw: RawMetadata, section: string, key: string, value: unknown, remove = isEmptyValue(value)): NativeEdit[] {
+  const group = SYNCED_FIELDS.find((fields) => fields.some(([s, k]) => s === section && k.toLowerCase() === key.toLowerCase()));
+  const edits: NativeEdit[] = [];
+  for (const [s, k] of group ?? [[section, key] as const]) {
+    raw[s] ||= {};
+    if (remove) delete raw[s][k]; else raw[s][k] = value;
+    if (s === 'exif' || s === 'gps') edits.push({ section: s, key: k, value, remove });
+  }
+  return edits;
+}
+const splitKeywords = (value: string) => [...new Set(value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean))];
+/** Coerces editor input into the shape each tag expects. */
+export function normalizeTagValue(section: string, key: string, value: unknown): unknown {
+  if (section === 'exif' && isExifDateTag(key)) return normalizeExifDate(value);
+  if (/^(Keywords|subject)$/i.test(key) && typeof value === 'string') return splitKeywords(value);
+  return value;
+}
+function applySeoToRaw(raw: RawMetadata, seo: SeoMetadata): NativeEdit[] {
+  const edits = [
+    ...setSynced(raw, 'iptc', 'Headline', seo.title?.trim()),
+    ...setSynced(raw, 'iptc', 'Caption', seo.caption?.trim()),
+    ...setSynced(raw, 'iptc', 'Keywords', seo.keywords?.map((keyword) => keyword.trim()).filter(Boolean))
+  ];
+  setSynced(raw, 'xmp', 'altText', seo.altText?.trim());
+  return edits;
+}
+const isFatalAiError = (error: unknown) => /Invalid Gemini API Key|rate limit|access denied|billing|model is unavailable|API Key is required/i.test(errorMessage(error));
+
 const persistedStorage: PersistStorage<Partial<MetaForgeState>> = {
   getItem: (name) => {
     try { const value = localStorage.getItem(name); return value ? JSON.parse(value) : null; } catch { return null; }
@@ -225,6 +272,8 @@ const persistedStorage: PersistStorage<Partial<MetaForgeState>> = {
 };
 let operationQueue: Promise<unknown> = Promise.resolve();
 let importGeneration = 0;
+let activeBatch: { controller: AbortController; type: BatchJob['type'] } | null = null;
+let cancelRequested = false;
 
 export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => {
   const notify = (title: string, error: unknown) => get().addToast({ type: 'error', title, description: errorMessage(error) });
@@ -268,26 +317,45 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     get().addToast({ type: 'success', title: action });
     return true;
   });
-  const batch = (name: string, type: BatchJob['type'], ids: string[], transform: (file: MetaFile, index: number) => Promise<MetaFile>, actor: MetadataHistoryItem['actor'] = 'System') => run(name, async () => {
+  const batch = (
+    name: string, type: BatchJob['type'], ids: string[],
+    transform: (file: MetaFile, index: number, signal: AbortSignal) => Promise<MetaFile>,
+    actor: MetadataHistoryItem['actor'] = 'System', stopOn?: (error: unknown) => boolean
+  ) => run(name, async () => {
     const targets = [...new Set(ids)].filter((id) => get().files.some((f) => f.id === id));
     if (!targets.length) throw new Error('Import or select images first.');
     const job: BatchJob = { id: uid(), name, type, status: 'RUNNING', total: targets.length, completed: 0, failed: 0, progress: 0, createdAt: Date.now(), errors: [] };
     set((state) => ({ batchJobs: [job, ...state.batchJobs].slice(0, 100) }));
-    for (const [index, id] of targets.entries()) {
-      const file = get().files.find((f) => f.id === id);
-      try {
-        if (!file) throw new Error('Image was removed from the queue.');
-        if (!commit(file, await transform(file, index), name, actor)) throw new Error('Image was removed before processing finished.');
-        job.completed++;
-      } catch (error) { job.failed++; job.errors.push(`${file?.name || id}: ${errorMessage(error)}`); }
-      job.progress = Math.round(((index + 1) / targets.length) * 100);
-      set((state) => ({ processingMessage: `${name}: ${index + 1}/${targets.length}`, batchJobs: state.batchJobs.map((j) => j.id === job.id ? { ...job, errors: [...job.errors] } : j) }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-    job.status = job.failed ? 'FAILED' : 'COMPLETED';
-    set((state) => ({ batchJobs: state.batchJobs.map((j) => j.id === job.id ? { ...job } : j) }));
-    get().addToast({ type: job.failed ? 'warning' : 'success', title: job.failed ? `${name}: ${job.failed} failed` : name, description: `${job.completed}/${job.total} images processed.${job.errors[0] ? ` ${job.errors[0]}` : ''}` });
-    return job.failed === 0;
+    const controller = new AbortController();
+    activeBatch = { controller, type }; cancelRequested = false;
+    let stopped = '';
+    try {
+      for (const [index, id] of targets.entries()) {
+        if (cancelRequested) break;
+        const file = get().files.find((f) => f.id === id);
+        try {
+          if (!file) throw new Error('Image was removed from the queue.');
+          if (!commit(file, await transform(file, index, controller.signal), name, actor)) throw new Error('Image was removed before processing finished.');
+          job.completed++;
+        } catch (error) {
+          if (cancelRequested) break;
+          job.failed++; job.errors.push(`${file?.name || id}: ${errorMessage(error)}`);
+          // Credential and quota failures would repeat for every remaining image.
+          if (stopOn?.(error)) { stopped = errorMessage(error); break; }
+        }
+        job.progress = Math.round(((index + 1) / targets.length) * 100);
+        set((state) => ({ processingMessage: `${name}: ${index + 1}/${targets.length}`, batchJobs: state.batchJobs.map((j) => j.id === job.id ? { ...job, errors: [...job.errors] } : j) }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    } finally { if (activeBatch?.controller === controller) activeBatch = null; }
+    const cancelled = cancelRequested; cancelRequested = false;
+    const skipped = targets.length - job.completed - job.failed;
+    if (skipped > 0) job.errors.push(`${skipped} image(s) were not processed${cancelled ? ' because the job was cancelled' : ''}.`);
+    job.status = cancelled ? 'CANCELLED' : job.failed ? 'FAILED' : 'COMPLETED';
+    set((state) => ({ batchJobs: state.batchJobs.map((j) => j.id === job.id ? { ...job, errors: [...job.errors] } : j) }));
+    if (cancelled) get().addToast({ type: 'warning', title: `${name} cancelled`, description: `${job.completed}/${job.total} images were processed before cancelling.` });
+    else get().addToast({ type: job.failed ? 'warning' : 'success', title: job.failed ? `${name}: ${job.failed} failed` : name, description: `${job.completed}/${job.total} images processed.${stopped ? ` Stopped: ${stopped}` : job.errors[0] ? ` ${job.errors[0]}` : ''}` });
+    return job.status === 'COMPLETED';
   });
   const social = async (file: MetaFile) => {
     const cleaned = await fromBlob(file, await stripAllMetadataFromBlob(blobOf(file)));
@@ -317,9 +385,8 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     };
     const raw = scrub(file.rawMetadata);
     delete raw.pngChunks;
-    let blob = blobOf(file);
     const keys = new Set([...Object.keys(file.rawMetadata.exif || {}).filter(sensitive), 'BodySerialNumber', 'LensSerialNumber', 'CameraSerialNumber', 'CameraOwnerName', 'MakerNote', 'ImageUniqueID']);
-    for (const key of keys) blob = await writeMetadataToBlob(blob, raw, { section: 'exif', key, remove: true });
+    const blob = await writeMetadataToBlob(blobOf(file), raw, [...keys].map((key) => ({ section: 'exif', key, remove: true })));
     const result = await fromBlob(file, blob);
     if (result.privacyReport.hasDeviceSerial || result.privacyReport.inspectionWarning) {
       URL.revokeObjectURL(result.thumbnailUrl);
@@ -327,40 +394,22 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     }
     return result;
   };
-  const writeRaw = async (file: MetaFile, raw: MetaFile['rawMetadata']) => {
-    let blob = blobOf(file);
-    if (file.type === 'image/jpeg') blob = await writeTagsToJpeg(blob, { artist: raw.exif?.Artist, copyright: raw.exif?.Copyright });
-    return fromBlob(file, await writeMetadataToBlob(blob, raw));
-  };
+  const writeRaw = async (file: MetaFile, raw: RawMetadata, edits: NativeEdit[] = []) => fromBlob(file, await writeMetadataToBlob(blobOf(file), raw, edits));
   const editTag = (id: string, section: string, key: string, value: any, remove = false) => mutate(id, remove ? 'Tag Deleted' : 'Tag Saved', async (file) => {
     if (!['exif', 'iptc', 'xmp', 'gps'].includes(section) || !key.trim() || ['__proto__', 'prototype', 'constructor'].includes(key)) throw new Error('Invalid metadata section or tag name.');
     if (section === 'gps') throw new Error('Use Remove GPS to remove the complete location safely. Individual GPS edits are not supported.');
+    const normalized = remove ? undefined : normalizeTagValue(section, key, value);
     const raw = clone(file.rawMetadata); raw[section] ||= {};
-    if (remove) delete raw[section][key]; else raw[section][key] = value;
-    const groups = [
-      [['iptc', 'Headline'], ['iptc', 'ObjectName'], ['xmp', 'title']],
-      [['iptc', 'Caption'], ['xmp', 'description'], ['exif', 'ImageDescription']],
-      [['exif', 'Artist'], ['iptc', 'Byline'], ['xmp', 'creator']],
-      [['exif', 'Copyright'], ['iptc', 'CopyrightNotice'], ['xmp', 'rights']],
-      [['iptc', 'Keywords'], ['xmp', 'subject']]
-    ];
-    const group = groups.find((fields) => fields.some(([s, k]) => s === section && k.toLowerCase() === key.toLowerCase()));
-    let nativeEdit = { section, key, value, remove };
-    if (group) {
-      for (const [s, k] of group) {
-        raw[s] ||= {};
-        if (remove) delete raw[s][k]; else raw[s][k] = value;
-      }
-      const native = group.find(([s]) => s === 'exif');
-      if (native) nativeEdit = { ...nativeEdit, section: native[0], key: native[1] };
-    }
-    return fromBlob(file, await writeMetadataToBlob(blobOf(file), raw, nativeEdit));
+    if (remove) delete raw[section][key]; else raw[section][key] = normalized;
+    const edits = setSynced(raw, section, key, normalized, remove);
+    return writeRaw(file, raw, edits);
   });
-  const exportJson = (payload: unknown, name: string) => {
-    try { saveAs(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), name); }
-    catch (error) { notify('JSON Export Failed', error); }
+  const exportFile = (content: string, type: string, name: string) => {
+    try { saveAs(new Blob([content], { type }), name); }
+    catch (error) { notify('Export Failed', error); }
   };
   const jsonRecord = (file: MetaFile) => ({ file: { name: file.name, size: file.size, type: file.type, width: file.width, height: file.height, lastModified: file.lastModified }, rawMetadata: file.rawMetadata, seoMetadata: file.seoData, privacyReport: file.privacyReport, aiWorkflow: file.aiWorkflow });
+  const stopAiBatch = () => { if (activeBatch?.type === 'AI_SEO') get().cancelBatch(); };
   return {
     currentView: 'studio', setCurrentView: (view) => {
       const currentView = workspaceView(view);
@@ -372,6 +421,7 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     },
     files: [], activeFileId: null, selectedFileIds: [], compareFileIds: [null, null], presets: DEFAULT_PRESETS, batchJobs: [],
     clearCompletedJobs: () => set((state) => ({ batchJobs: state.batchJobs.filter((job) => job.status === 'RUNNING' || job.status === 'QUEUED') })),
+    cancelBatch: () => { if (!activeBatch) return; cancelRequested = true; activeBatch.controller.abort(); },
     toasts: [],
     addToast: (toast) => {
       const id = uid();
@@ -383,8 +433,9 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     searchQuery: '', filterOptions: { format: 'ALL', seoStatus: 'ALL', privacyStatus: 'ALL', aiStatus: 'ALL' },
     setSearchQuery: (query) => set({ searchQuery: query }), setFilterOptions: (filters) => set((state) => ({ filterOptions: { ...state.filterOptions, ...filters } })),
     aiEnabled: false, geminiApiKey: '', selectedModel: DEFAULT_GEMINI_MODEL, isProcessing: false, processingMessage: '', activeTab: 'inspector', isAiSettingsOpen: false,
-    setAiEnabled: (enabled) => set({ aiEnabled: enabled }), toggleAI: () => set((state) => ({ aiEnabled: !state.aiEnabled })),
-    setApiKey: (key) => set({ geminiApiKey: key.trim() }), setSelectedModel: (model) => set({ selectedModel: normalizeGeminiModel(model) }),
+    setAiEnabled: (enabled) => { if (!enabled) stopAiBatch(); set({ aiEnabled: enabled }); },
+    toggleAI: () => { if (get().aiEnabled) stopAiBatch(); set((state) => ({ aiEnabled: !state.aiEnabled })); },
+    setApiKey: (key) => { if (!key.trim()) stopAiBatch(); set({ geminiApiKey: key.trim() }); }, setSelectedModel: (model) => set({ selectedModel: normalizeGeminiModel(model) }),
     setActiveFile: (id) => set({ activeFileId: get().files.some((f) => f.id === id) ? id : get().files[0]?.id || null }),
     setActiveTab: (tab) => set({ activeTab: tab }), setIsAiSettingsOpen: (open) => set({ isAiSettingsOpen: open }),
     toggleSelectFile: (id) => set((state) => ({ selectedFileIds: !state.files.some((f) => f.id === id) ? state.selectedFileIds : state.selectedFileIds.includes(id) ? state.selectedFileIds.filter((value) => value !== id) : [...state.selectedFileIds, id] })),
@@ -402,7 +453,12 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
             const parsed = await parseDeepMetadata(file);
             if (generation !== importGeneration) { URL.revokeObjectURL(parsed.thumbnailUrl); continue; }
             parsed.name = safeFilename(parsed.name, parsed.type);
-            set((state) => { const combined = [...state.files, parsed]; return { files: combined, activeFileId: state.activeFileId || parsed.id, compareFileIds: [state.compareFileIds[0] || combined[0]?.id || null, state.compareFileIds[1] || combined[1]?.id || null] }; });
+            set((state) => {
+              const combined = [...state.files, parsed];
+              const first = state.compareFileIds[0] || combined[0]?.id || null;
+              const second = state.compareFileIds[1] || combined.find((item) => item.id !== first)?.id || null;
+              return { files: combined, activeFileId: state.activeFileId || parsed.id, compareFileIds: [first, second] };
+            });
             imported++;
           } catch (error) { errors.push(`${file.name}: ${errorMessage(error)}`); }
           set({ processingMessage: `Imported ${imported}/${files.length} images…` });
@@ -414,7 +470,13 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     },
     removeFile: (id) => {
       const file = get().files.find((f) => f.id === id); if (file) URL.revokeObjectURL(file.thumbnailUrl);
-      set((state) => { const files = state.files.filter((f) => f.id !== id); return { files, activeFileId: state.activeFileId === id ? files[0]?.id || null : state.activeFileId, selectedFileIds: state.selectedFileIds.filter((value) => value !== id), compareFileIds: state.compareFileIds.map((value, index) => value === id ? files[index]?.id || null : value) as [string | null, string | null] }; });
+      set((state) => {
+        const files = state.files.filter((f) => f.id !== id);
+        const [left, right] = state.compareFileIds.map((value) => value === id ? null : value);
+        const first = left ?? files.find((item) => item.id !== right)?.id ?? null;
+        const compareFileIds: [string | null, string | null] = [first, right ?? files.find((item) => item.id !== first)?.id ?? null];
+        return { files, activeFileId: state.activeFileId === id ? files[0]?.id || null : state.activeFileId, selectedFileIds: state.selectedFileIds.filter((value) => value !== id), compareFileIds };
+      });
     },
     clearFiles: () => { importGeneration++; get().files.forEach((f) => URL.revokeObjectURL(f.thumbnailUrl)); set({ files: [], activeFileId: null, selectedFileIds: [], compareFileIds: [null, null], searchQuery: '' }); },
     updateTag: (id, section, key, value) => editTag(id, section, key, value), deleteTag: (id, section, key) => editTag(id, section, key, undefined, true),
@@ -426,11 +488,32 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     batchSanitizeForSocial: () => batch('Social Sanitization', 'SANITIZE_SOCIAL', get().files.map((f) => f.id), social),
     applyAiSeo: (id, seo, actor = 'User') => set((state) => ({ files: state.files.map((file) => file.id === id ? { ...file, seoData: { ...file.seoData, ...seo }, isDirty: true, history: actor === 'AI' ? [snapshot(file, 'Generated SEO draft', 'AI'), ...file.history].slice(0, 50) : file.history } : file) })),
     writeSeoToMetadata: (id) => mutate(id, 'SEO Saved to Image', async (file) => {
-      const raw = clone(file.rawMetadata), seo = file.seoData;
-      raw.iptc = { ...raw.iptc, Headline: seo.title || '', Caption: seo.caption || '', Keywords: seo.keywords || [] };
-      raw.xmp = { ...raw.xmp, title: seo.title || '', description: seo.caption || '', altText: seo.altText || '', subject: seo.keywords || [] };
-      return writeRaw(file, raw);
+      const raw = clone(file.rawMetadata);
+      return writeRaw(file, raw, applySeoToRaw(raw, file.seoData));
     }),
+    batchGenerateSeo: (ids, options = {}) => {
+      const { aiEnabled, geminiApiKey, selectedModel } = get();
+      if (!aiEnabled || !geminiApiKey) {
+        get().addToast({ type: 'error', title: 'AI Is Not Configured', description: 'Enable AI and add a Gemini API key in AI Settings first.' });
+        return Promise.resolve(false);
+      }
+      const complete = (file: MetaFile) => Boolean(file.seoData.title && file.seoData.caption && file.seoData.altText && file.seoData.keywords?.length);
+      const targets = options.skipComplete ? ids.filter((id) => { const file = get().files.find((item) => item.id === id); return file && !complete(file); }) : ids;
+      if (!targets.length) {
+        get().addToast({ type: 'info', title: 'Nothing to Generate', description: 'Every targeted image already has a title, caption, alt text, and keywords.' });
+        return Promise.resolve(true);
+      }
+      return batch('AI SEO Generation', 'AI_SEO', targets, async (file, _index, signal) => {
+        if (!get().aiEnabled) { cancelRequested = true; throw new Error('AI was disabled.'); }
+        const { generateImageSeoMetadata } = await import('./ai-service');
+        const result = await generateImageSeoMetadata(geminiApiKey, blobOf(file), selectedModel, signal);
+        const seoData = { ...file.seoData, ...result };
+        if (options.save === false) return { ...file, seoData };
+        const raw = clone(file.rawMetadata);
+        const written = await writeRaw(file, raw, applySeoToRaw(raw, seoData));
+        return { ...written, seoData: { ...written.seoData, privacyFlags: result.privacyFlags } };
+      }, 'AI', isFatalAiError);
+    },
     applyPreset: (presetId, ids) => batch('Preset Applied', 'APPLY_PRESET', ids, async (file, index) => {
       const found = get().presets.find((p) => p.id === presetId); if (!found) throw new Error('Preset no longer exists.');
       const preset = validatePreset(found);
@@ -445,24 +528,40 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
         }
       }
       try {
-        const raw = clone(base.rawMetadata); raw.exif ||= {}; raw.iptc ||= {};
-        if (preset.tags.artist !== undefined) raw.exif.Artist = preset.tags.artist;
-        if (preset.tags.copyright !== undefined) raw.exif.Copyright = preset.tags.copyright;
-        for (const [tag, key] of [['credit', 'Credit'], ['headline', 'Headline'], ['caption', 'Caption'], ['keywords', 'Keywords']] as const) if (preset.tags[tag] !== undefined) raw.iptc[key] = preset.tags[tag];
-        const result = await writeRaw(base, raw);
+        const raw = clone(base.rawMetadata), edits: NativeEdit[] = [];
+        if (preset.tags.artist !== undefined) edits.push(...setSynced(raw, 'exif', 'Artist', preset.tags.artist));
+        if (preset.tags.copyright !== undefined) edits.push(...setSynced(raw, 'exif', 'Copyright', preset.tags.copyright));
+        if (preset.tags.headline !== undefined) edits.push(...setSynced(raw, 'iptc', 'Headline', preset.tags.headline));
+        if (preset.tags.caption !== undefined) edits.push(...setSynced(raw, 'iptc', 'Caption', preset.tags.caption));
+        if (preset.tags.keywords !== undefined) edits.push(...setSynced(raw, 'iptc', 'Keywords', preset.tags.keywords));
+        if (preset.tags.credit !== undefined) setSynced(raw, 'iptc', 'Credit', preset.tags.credit);
+        const result = await writeRaw(base, raw, edits);
         if (preset.filenameTemplate) result.name = renameFromTemplate(result, preset.filenameTemplate, index);
         return result;
       } finally { if (base !== file) URL.revokeObjectURL(base.thumbnailUrl); }
     }, 'Preset'),
-    createPreset: (preset) => { try { const validated = validatePreset(preset); set((state) => ({ presets: [...state.presets, { ...validated, id: uid() }] })); } catch (error) { notify('Invalid Preset', error); } },
-    deletePreset: (id) => set((state) => ({ presets: state.presets.filter((p) => p.id !== id) })),
-    batchBulkEdit: (ids, updates) => batch('Bulk Metadata Saved', 'APPLY_PRESET', ids, async (file) => {
-      const raw = clone(file.rawMetadata); raw.exif ||= {}; raw.iptc ||= {};
-      if (updates.artist !== undefined) raw.exif.Artist = updates.artist;
-      if (updates.copyright !== undefined) raw.exif.Copyright = updates.copyright;
-      if (updates.keywords !== undefined) raw.iptc.Keywords = [...new Set([...(updates.keywordMode === 'append' ? file.seoData.keywords || [] : []), ...updates.keywords])];
-      return writeRaw(file, raw);
-    }),
+    createPreset: (preset) => {
+      try { const validated = validatePreset(preset); set((state) => ({ presets: [...state.presets, { ...validated, id: uid() }] })); return true; }
+      catch (error) { notify('Invalid Preset', error); return false; }
+    },
+    deletePreset: (id) => set((state) => ({ presets: state.presets.filter((p) => p.id !== id || BUILT_IN_PRESET_IDS.includes(p.id)) })),
+    batchBulkEdit: (ids, updates) => {
+      const keywords = updates.keywords?.map((keyword) => keyword.trim()).filter(Boolean);
+      if (updates.artist === undefined && updates.copyright === undefined && keywords === undefined) {
+        get().addToast({ type: 'warning', title: 'Nothing to Apply', description: 'Enter a copyright notice, an artist, or keywords first.' });
+        return Promise.resolve(false);
+      }
+      return batch('Bulk Metadata Saved', 'APPLY_PRESET', ids, async (file) => {
+        const raw = clone(file.rawMetadata), edits: NativeEdit[] = [];
+        if (updates.artist !== undefined) edits.push(...setSynced(raw, 'exif', 'Artist', updates.artist));
+        if (updates.copyright !== undefined) edits.push(...setSynced(raw, 'exif', 'Copyright', updates.copyright));
+        if (keywords !== undefined) {
+          const existing = updates.keywordMode === 'append' ? seoFromRaw(file.rawMetadata).keywords : [];
+          edits.push(...setSynced(raw, 'iptc', 'Keywords', [...new Set([...existing, ...keywords])]));
+        }
+        return writeRaw(file, raw, edits);
+      });
+    },
     batchRename: (ids, template) => batch('Batch Rename', 'RENAME', ids, async (file, index) => ({ ...file, name: renameFromTemplate(file, template, index) })),
     restoreHistory: (id, historyId) => mutate(id, 'Version Restored', async (file) => {
       const record = file.history.find((h) => h.id === historyId);
@@ -475,8 +574,9 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
       commit(file, { ...file, name: safeFilename(name, file.type) }, 'File Renamed');
     },
     exportSingle: (id) => { try { const file = get().files.find((f) => f.id === id); if (file) saveAs(blobOf(file), safeFilename(file.name, file.type)); } catch (error) { notify('Download Failed', error); } },
-    exportAllZip: () => run('Packaging ZIP archive…', async () => {
-      const files = [...get().files]; if (!files.length) throw new Error('Import images before exporting.');
+    exportAllZip: (ids) => run('Packaging ZIP archive…', async () => {
+      const files = ids?.length ? get().files.filter((file) => ids.includes(file.id)) : [...get().files];
+      if (!files.length) throw new Error('Import images before exporting.');
       const zip = new JSZip(), used = new Set<string>();
       for (const file of files) {
         const base = safeFilename(file.name, file.type); let name = base, suffix = 2;
@@ -488,8 +588,12 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
       get().addToast({ type: 'success', title: 'ZIP Export Complete', description: `${files.length} images packaged.` });
       return true;
     }),
-    exportMetadataJson: (id) => { const file = get().files.find((f) => f.id === id); if (file) exportJson(jsonRecord(file), `${file.name.replace(/\.[^.]+$/, '')}_metadata.json`); },
-    exportAllMetadataJson: () => { if (get().files.length) exportJson(get().files.map(jsonRecord), 'metaforge_catalog.json'); }
+    exportMetadataJson: (id) => { const file = get().files.find((f) => f.id === id); if (file) exportFile(metadataJson(jsonRecord(file)), 'application/json', `${file.name.replace(/\.[^.]+$/, '')}_metadata.json`); },
+    exportAllMetadataJson: () => { if (get().files.length) exportFile(metadataJson(get().files.map(jsonRecord)), 'application/json', 'metaforge_catalog.json'); },
+    exportMetadataCsv: () => {
+      if (!get().files.length) { notify('Export Failed', new Error('Import images before exporting.')); return; }
+      exportFile(buildMetadataCsv(get().files), 'text/csv;charset=utf-8', `metaforge_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
+    }
   };
 }, {
   name: 'metaforge_storage_v2', storage: persistedStorage, skipHydration: true,
@@ -505,3 +609,12 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     return { ...current, presets, aiEnabled: saved.aiEnabled === true, geminiApiKey, selectedModel: !geminiApiKey && selectedModel.startsWith('gemini-2.5-') ? DEFAULT_GEMINI_MODEL : selectedModel };
   }
 }));
+
+/** Subscribes to the named fields only, so unrelated updates (toasts, progress text) do not re-render the caller. */
+export function useMetaForge<K extends keyof MetaForgeState>(...keys: K[]): Pick<MetaForgeState, K> {
+  return useMetaForgeStore(useShallow((state: MetaForgeState) => {
+    const picked = {} as Pick<MetaForgeState, K>;
+    for (const key of keys) picked[key] = state[key];
+    return picked;
+  }));
+}

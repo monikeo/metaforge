@@ -12,6 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Tokens the components use that Tailwind does not ship: an extra-small breakpoint and in-between neutrals. */
+@theme {
+  --breakpoint-xs: 30rem;
+  --color-neutral-750: oklch(0.32 0 0);
+  --color-neutral-850: oklch(0.237 0 0);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #09090b;

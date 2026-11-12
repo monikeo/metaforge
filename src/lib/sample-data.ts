@@ -1,6 +1,6 @@
 import piexif from 'piexifjs';
 import { encodeCanvas } from './canvas-encoder';
-import { blobToDataUrl, containerPackets, dataUrlToBlob, pngChunk, writeMetadataToBlob } from './metadata-writer';
+import { blobToDataUrl, containerPackets, dataUrlToBlob, pngChunk, toSafeExifString, writeMetadataToBlob } from './metadata-writer';
 
 /**
  * Creates a sample with native EXIF/GPS, using PNG if the browser falls back from JPEG.
@@ -72,21 +72,21 @@ export async function createSampleExifImage(options: {
   const exif: Record<number, any> = {};
   const gps: Record<number, any> = {};
 
-  zeroth[piexif.ImageIFD.Make] = options.cameraMake;
-  zeroth[piexif.ImageIFD.Model] = options.cameraModel;
-  zeroth[piexif.ImageIFD.Artist] = options.artist;
-  zeroth[piexif.ImageIFD.Copyright] = options.copyright;
+  zeroth[piexif.ImageIFD.Make] = toSafeExifString(options.cameraMake);
+  zeroth[piexif.ImageIFD.Model] = toSafeExifString(options.cameraModel);
+  zeroth[piexif.ImageIFD.Artist] = toSafeExifString(options.artist);
+  zeroth[piexif.ImageIFD.Copyright] = toSafeExifString(options.copyright);
   zeroth[piexif.ImageIFD.Software] = 'MetaForge Studio v1.0.4';
   zeroth[piexif.ImageIFD.HostComputer] = 'MacBookPro18,1';
-  zeroth[piexif.ImageIFD.CameraSerialNumber] = options.serialNumber;
-  zeroth[piexif.ImageIFD.ImageDescription] = options.title;
+  zeroth[piexif.ImageIFD.CameraSerialNumber] = toSafeExifString(options.serialNumber);
+  zeroth[piexif.ImageIFD.ImageDescription] = toSafeExifString(options.title);
 
   exif[piexif.ExifIFD.ExposureTime] = [1, 250];
   exif[piexif.ExifIFD.FNumber] = [28, 10]; // f/2.8
   exif[piexif.ExifIFD.ISOSpeedRatings] = 200;
   exif[piexif.ExifIFD.FocalLength] = [35, 1];
-  exif[piexif.ExifIFD.LensModel] = options.lensModel;
-  exif[piexif.ExifIFD.BodySerialNumber] = options.serialNumber;
+  exif[piexif.ExifIFD.LensModel] = toSafeExifString(options.lensModel);
+  exif[piexif.ExifIFD.BodySerialNumber] = toSafeExifString(options.serialNumber);
   exif[piexif.ExifIFD.DateTimeOriginal] = '2026:08:14 19:42:10';
 
   // GPS formatting

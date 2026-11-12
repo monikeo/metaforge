@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
-import { generateImageSeoMetadata } from '@/lib/ai-service';
+import { useMetaForge, useMetaForgeStore } from '@/lib/store';
 import { 
   Sparkles, 
   Loader2, 
@@ -21,16 +20,8 @@ interface AIGeneratorPanelProps {
 }
 
 export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
-  const { 
-    files, 
-    aiEnabled, 
-    geminiApiKey, 
-    selectedModel, 
-    setIsAiSettingsOpen, 
-    applyAiSeo, 
-    isProcessing,
-    writeSeoToMetadata 
-  } = useMetaForgeStore();
+  const { files, aiEnabled, geminiApiKey, selectedModel, setIsAiSettingsOpen, applyAiSeo, isProcessing, writeSeoToMetadata } =
+    useMetaForge('files', 'aiEnabled', 'geminiApiKey', 'selectedModel', 'setIsAiSettingsOpen', 'applyAiSeo', 'isProcessing', 'writeSeoToMetadata');
 
   const file = files.find((f) => f.id === fileId);
 
@@ -57,6 +48,8 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
     setErrorMsg(null);
     try {
       const blob = file.modifiedBlob || file.originalBlob;
+      // Loaded on demand: the Gemini SDK is not needed until the first analysis.
+      const { generateImageSeoMetadata } = await import('@/lib/ai-service');
       const result = await generateImageSeoMetadata(geminiApiKey, blob, selectedModel, controller.signal);
       if (controller.signal.aborted || !useMetaForgeStore.getState().aiEnabled) return;
       const current = useMetaForgeStore.getState().files.find((f) => f.id === file.id);
@@ -66,7 +59,8 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
       applyAiSeo(file.id, result, 'AI');
     } catch (err: any) {
       if (controller.signal.aborted) return;
-      setErrorMsg(err.message || 'Failed to analyze image with Gemini');
+      const moduleFailed = err?.name === 'ChunkLoadError' || /Loading chunk|dynamically imported module|Importing a module script failed/i.test(String(err?.message));
+      setErrorMsg(moduleFailed ? 'The AI module could not be loaded. Check your connection and try again.' : err.message || 'Failed to analyze image with Gemini');
     } finally {
       setIsLoading(false);
     }
@@ -86,11 +80,10 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
 
   const handleAddKeyword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newKeyword.trim()) return;
     const existing = currentSeo.keywords || [];
-    if (!existing.includes(newKeyword.trim())) {
-      applyAiSeo(file.id, { ...currentSeo, keywords: [...existing, newKeyword.trim()] });
-    }
+    // "red, blue; green" adds three keywords.
+    const additions = newKeyword.split(/[,;\n]/).map((keyword) => keyword.trim()).filter((keyword) => keyword && !existing.includes(keyword));
+    if (additions.length) applyAiSeo(file.id, { ...currentSeo, keywords: [...existing, ...new Set(additions)] });
     setNewKeyword('');
   };
 
@@ -245,6 +238,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
               #{tag}
               <button
                 type="button"
+                aria-label={`Remove keyword ${tag}`}
                 onClick={() => handleRemoveKeyword(tag)}
                 className="text-neutral-500 hover:text-rose-400 ml-1"
               >

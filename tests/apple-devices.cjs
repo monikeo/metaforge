@@ -29,7 +29,12 @@ const base=process.env.BASE_URL||'http://127.0.0.1:3100';
     const downloading=page.waitForEvent('download');await page.getByRole('button',{name:'Download image',exact:true}).tap();
     const download=await downloading,bytes=fs.readFileSync(await download.path());
     const metadata=await exifr.parse(bytes,{xmp:true,iptc:true});assert.ok(JSON.stringify(metadata).includes(`${name} 日本語 title`));
+    // Phones mount only the mobile layout, where importing more images happens from the Queue tab.
+    const narrow=(await page.viewportSize()).width<768;
+    if(narrow)await page.getByRole('button',{name:/^Queue/}).first().tap();
     await page.locator('input[aria-label="Choose image files"]').first().setInputFiles({name:'second.png',mimeType:'image/png',buffer:fs.readFileSync(`${__dirname}/fixtures/image.png`)});
+    await page.waitForFunction(()=>document.body.innerText.includes('second.png'));
+    if(narrow)await page.getByRole('button',{name:'Canvas',exact:true}).tap();
     for(const viewport of [devices[name].viewport,devices[`${name} landscape`].viewport,devices[name].viewport]){
      await page.setViewportSize(viewport);
      for(const [view,desktop,mobile,heading] of [

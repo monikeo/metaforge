@@ -3,7 +3,7 @@
 import ModalOverlay from '@/components/ModalOverlay';
 
 import React from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { History, X, RotateCcw, Clock, User, Bot, Sliders, Shield } from 'lucide-react';
 
 interface MetadataHistoryModalProps {
@@ -13,7 +13,7 @@ interface MetadataHistoryModalProps {
 }
 
 export default function MetadataHistoryModal({ fileId, isOpen, onClose }: MetadataHistoryModalProps) {
-  const { files, restoreHistory } = useMetaForgeStore();
+  const { files, restoreHistory, isProcessing } = useMetaForge('files', 'restoreHistory', 'isProcessing');
   const file = files.find((f) => f.id === fileId);
 
   if (!isOpen || !file) return null;
@@ -21,7 +21,7 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
   const history = file.history || [];
 
   return (
-    <ModalOverlay onClose={onClose} label="Metadata history" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={onClose} label="Metadata history" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
       <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow-2xl flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -92,8 +92,9 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
 
                   {record.previousRaw && (
                     <button
+                      disabled={isProcessing}
                       onClick={() => {
-                        restoreHistory(file.id, record.id);
+                        void restoreHistory(file.id, record.id);
                         onClose();
                       }}
                       className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-[11px] font-semibold text-neutral-300 hover:text-white transition touch-target sm:min-h-0 sm:min-w-0"

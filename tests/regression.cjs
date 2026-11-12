@@ -236,4 +236,134 @@ for(const operation of ['save','clean'])test(`Edits and renames made during meta
   assert.equal(written.seoData.title,operation==='save'?'Saved title':'');assert.equal(written.seoData.altText,operation==='save'?'Saved alt':'');
  }finally{resume?.();global.Image=PreviousImage}
 });
+const jpegWithExif=async(edit)=>{const url=await writer.blobToDataUrl(fixture('jpg','image/jpeg'));const exif=writer.ensureExifDicts(piexif.load(url));edit(exif);return new File([writer.dataUrlToBlob(piexif.insert(piexif.dump(exif),url))],'exif.jpg',{type:'image/jpeg'});};
+const nativeExif=async blob=>exifr.parse(Buffer.from(await blob.arrayBuffer()),{xmp:false,iptc:false,mergeOutput:true,reviveValues:false});
+const jpegSegments=bytes=>{const out=[];let o=2;while(o<bytes.length&&bytes[o]===255&&bytes[o+1]!==218){const len=(bytes[o+2]<<8)|bytes[o+3];out.push({marker:bytes[o+1],head:Buffer.from(bytes.subarray(o+4,o+10)).toString('latin1')});o+=2+len;}return out;};
+const snapshotOf=async blob=>{const match=Buffer.from(await blob.arrayBuffer()).toString('utf8').match(/<mf:Metadata>([\s\S]*?)<\/mf:Metadata>/);return match?JSON.parse(match[1].replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&apos;/g,"'").replace(/&amp;/g,'&')):null;};
+const withStubbedImage=async(onSrc,run)=>{const Previous=global.Image;global.Image=class{set src(_v){this.naturalWidth=16;this.naturalHeight=12;onSrc();queueMicrotask(()=>this.onload?.());}};try{return await run();}finally{global.Image=Previous;}};
+
+test('EXIF date edits keep the EXIF format and the original local time',async()=>{
+ store.getState().clearFiles();
+ await store.getState().addFiles([await jpegWithExif(exif=>{exif.Exif[piexif.ExifIFD.DateTimeOriginal]='2026:08:14 19:42:10';})]);
+ let file=store.getState().files[0];assert.ok(file.rawMetadata.exif.DateTimeOriginal instanceof Date);
+ // The tag editor serializes Date objects as quoted ISO strings in UTC.
+ assert.equal(await store.getState().updateTag(file.id,'exif','DateTimeOriginal',JSON.stringify(file.rawMetadata.exif.DateTimeOriginal)),true);
+ file=store.getState().files[0];assert.equal((await nativeExif(file.modifiedBlob)).DateTimeOriginal,'2026:08:14 19:42:10');
+ assert.equal(await store.getState().updateTag(file.id,'exif','DateTimeOriginal','2024-05-06 07:08'),true);
+ assert.equal((await nativeExif(store.getState().files[0].modifiedBlob)).DateTimeOriginal,'2024:05:06 07:08:00');
+ assert.equal(await store.getState().updateTag(file.id,'exif','DateTimeOriginal','yesterday'),false);
+});
+test('exifr tag names write to the matching native EXIF tags',async()=>{
+ const id=store.getState().files[0].id;
+ assert.equal(await store.getState().updateTag(id,'exif','ModifyDate','2020:01:02 03:04:05'),true);
+ assert.equal(await store.getState().updateTag(id,'exif','ISO',640),true);
+ const native=piexif.load(await writer.blobToDataUrl(store.getState().files[0].modifiedBlob));
+ assert.equal(native['0th'][piexif.ImageIFD.DateTime],'2020:01:02 03:04:05');assert.equal(native.Exif[piexif.ExifIFD.ISOSpeedRatings],640);
+});
+test('Native EXIF text is UTF-8, so © and non-Latin text survive in other tools',async()=>{
+ const id=store.getState().files[0].id;
+ assert.equal(await store.getState().updateTag(id,'exif','Artist','山田 太郎 © Studio'),true);
+ assert.equal((await nativeExif(store.getState().files[0].modifiedBlob)).Artist,'山田 太郎 © Studio');
+ const sample=await withStubbedImage(()=>{},async()=>{const previousDocument=global.document;const context=new Proxy({createLinearGradient:()=>({addColorStop(){}})},{get:(t,k)=>t[k]||(()=>{})});
+  global.document={createElement:()=>({getContext:()=>context,toBlob:callback=>callback(fixture('jpg','image/jpeg'))})};
+  try{return await createSampleExifImage({title:'t',cameraMake:'Sony',cameraModel:'A7',lensModel:'L',serialNumber:'S',artist:'A',copyright:'© 2026 Sample',latitude:1,longitude:2,color:'#000'});}finally{if(previousDocument===undefined)delete global.document;else global.document=previousDocument;}});
+ assert.equal((await nativeExif(sample)).Copyright,'© 2026 Sample');
+});
+test('XMP packets follow the leading JFIF and EXIF segments',async()=>{
+ const blob=await writer.writeMetadataToBlob(gpsFile,{iptc:{Headline:'Order'}});
+ const segments=jpegSegments(new Uint8Array(await blob.arrayBuffer()));
+ const xmp=segments.findIndex(s=>s.marker===225&&s.head.startsWith('http')),exif=segments.findIndex(s=>s.marker===225&&s.head.startsWith('Exif'));
+ assert.ok(exif>=0&&xmp>exif,'XMP must come after EXIF');assert.ok(segments.slice(0,xmp).every(s=>s.marker===224||s.marker===225));
+});
+test('Snapshots never copy GPS and yield to native EXIF changed by other tools',async()=>{
+ const written=await writer.writeMetadataToBlob(gpsFile,{exif:{Artist:'MetaForge Artist'},gps:{latitude:0,longitude:139.7}},{section:'exif',key:'Artist',value:'MetaForge Artist'});
+ const snap=await snapshotOf(written);assert.equal(snap.gps,undefined);assert.equal(typeof snap.integrity.exif,'number');
+ assert.equal((await reader.parseDeepMetadata(new File([written],'a.jpg',{type:'image/jpeg'}))).rawMetadata.exif.Artist,'MetaForge Artist');
+ const url=await writer.blobToDataUrl(written),exif=piexif.load(url);exif['0th'][piexif.ImageIFD.Artist]='Changed Elsewhere';
+ const external=new File([writer.dataUrlToBlob(piexif.insert(piexif.dump(exif),url))],'b.jpg',{type:'image/jpeg'});
+ assert.equal((await reader.parseDeepMetadata(external)).rawMetadata.exif.Artist,'Changed Elsewhere');
+});
+test('XMP fields changed by other tools replace stale snapshot copies',async()=>{
+ const written=Buffer.from(await (await writer.writeMetadataToBlob(fixture('jpg','image/jpeg'),{iptc:{Headline:'Old Title'}})).arrayBuffer());
+ const marker=Buffer.from('x-default">Old Title<');const at=written.indexOf(marker);assert.ok(at>0);
+ Buffer.from('x-default">New Title<').copy(written,at);
+ const parsed=await reader.parseDeepMetadata(new File([written],'edited.jpg',{type:'image/jpeg'}));
+ assert.equal(parsed.seoData.title,'New Title');
+});
+test('XMP written by other tools fills SEO fields, and blank language entries stay blank',async()=>{
+ const xml='<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:Iptc4xmpCore="http://iptc.org/std/Iptc4xmpCore/1.0/xmlns/" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Lightroom Title</rdf:li></rdf:Alt></dc:title><dc:description><rdf:Alt><rdf:li xml:lang="x-default">Harbour at dawn</rdf:li></rdf:Alt></dc:description><dc:rights><rdf:Alt><rdf:li xml:lang="x-default"></rdf:li></rdf:Alt></dc:rights><dc:subject><rdf:Bag><rdf:li>harbour</rdf:li><rdf:li>dawn</rdf:li></rdf:Bag></dc:subject><Iptc4xmpCore:AltTextAccessibility>Boats moored in calm water</Iptc4xmpCore:AltTextAccessibility><photoshop:City>Hobart</photoshop:City></rdf:Description></rdf:RDF></x:xmpmeta>';
+ const payload=Buffer.concat([Buffer.from('http://ns.adobe.com/xap/1.0/\0'),Buffer.from(xml)]);
+ const source=Buffer.from(await fixture('jpg','image/jpeg').arrayBuffer());
+ const app1=Buffer.concat([Buffer.from([255,225,(payload.length+2)>>8,(payload.length+2)&255]),payload]);
+ const parsed=await reader.parseDeepMetadata(new File([Buffer.concat([source.subarray(0,2),app1,source.subarray(2)])],'lr.jpg',{type:'image/jpeg'}));
+ assert.deepEqual(parsed.seoData,{title:'Lightroom Title',caption:'Harbour at dawn',altText:'Boats moored in calm water',keywords:['harbour','dawn']});
+ assert.equal(parsed.rawMetadata.xmp.City,'Hobart');assert.equal(parsed.rawMetadata.dc,undefined);
+ const resaved=await writer.writeMetadataToBlob(new File([source],'x.jpg',{type:'image/jpeg'}),{iptc:{Headline:'Only a title'}});
+ const reparsed=await reader.parseDeepMetadata(new File([resaved],'re.jpg',{type:'image/jpeg'}));
+ assert.equal(reparsed.seoData.caption,'');assert.equal(reparsed.rawMetadata.mf,undefined);assert.equal(Buffer.from(await resaved.arrayBuffer()).includes(Buffer.from('<dc:description>')),false);
+});
+test('Bulk edits update native EXIF in PNG and WebP files',async()=>{
+ const payload=Buffer.from(piexif.dump(piexif.load(await writer.blobToDataUrl(gpsFile))),'binary');
+ for(const ext of ['png','webp']){
+  let bytes=Buffer.from(await fixture(ext,`image/${ext}`).arrayBuffer());const packets=writer.containerPackets(bytes);
+  if(ext==='png')bytes=Buffer.concat([bytes.subarray(0,8),Buffer.from(writer.pngChunk('eXIf',payload.subarray(6))),...packets.map(p=>Buffer.from(p.packet))]);
+  else{const vp8x=packets.find(p=>p.type==='VP8X');vp8x.packet[8]|=8;const data=payload.subarray(6);const chunk=Buffer.alloc(8+data.length+(data.length%2));chunk.write('EXIF');chunk.writeUInt32LE(data.length,4);data.copy(chunk,8);bytes=Buffer.concat([bytes.subarray(0,12),...packets.map(p=>Buffer.from(p.packet)),chunk]);bytes.writeUInt32LE(bytes.length-8,4);}
+  store.getState().clearFiles();await store.getState().addFiles([new File([bytes],`native.${ext}`,{type:`image/${ext}`})]);
+  const id=store.getState().files[0].id;
+  assert.equal(await store.getState().batchBulkEdit([id],{artist:'Bulk Artist',copyright:'© Bulk'}),true);
+  const file=store.getState().files[0];
+  const exifChunk=writer.containerPackets(new Uint8Array(await file.modifiedBlob.arrayBuffer())).find(p=>p.type===(ext==='png'?'eXIf':'EXIF'));
+  assert.notEqual(Buffer.from(exifChunk.data.subarray(0,4)).toString('latin1'),'Exif',`${ext} EXIF chunks must hold bare TIFF data`);
+  const native=piexif.load('Exif\0\0'+Buffer.from(exifChunk.data).toString('latin1'))['0th'],utf8=value=>Buffer.from(value,'latin1').toString('utf8');
+  assert.equal(utf8(native[piexif.ImageIFD.Artist]),'Bulk Artist');assert.equal(utf8(native[piexif.ImageIFD.Copyright]),'© Bulk');assert.equal(file.rawMetadata.iptc.Byline,'Bulk Artist');
+ }
+});
+test('Bulk edits with no values are rejected instead of rewriting every image',async()=>{
+ const before=store.getState().batchJobs.length;
+ assert.equal(await store.getState().batchBulkEdit(store.getState().files.map(f=>f.id),{keywordMode:'append'}),false);
+ assert.equal(store.getState().batchJobs.length,before);
+});
+test('Keyword strings become keyword lists in every synced field',async()=>{
+ const id=store.getState().files[0].id;
+ assert.equal(await store.getState().updateTag(id,'iptc','Keywords','alpine, lake; summer'),true);
+ const file=store.getState().files[0];
+ assert.deepEqual(file.rawMetadata.iptc.Keywords,['alpine','lake','summer']);assert.deepEqual(file.rawMetadata.xmp.subject,['alpine','lake','summer']);assert.deepEqual(file.seoData.keywords,['alpine','lake','summer']);
+});
+test('Stable Diffusion parameters in a UNICODE UserComment are detected in JPEG',async()=>{
+ const params='a red cat\nNegative prompt: blurry\nSteps: 20, Sampler: Euler a, CFG scale: 7, Seed: 123, Model: sdxl';
+ const file=await jpegWithExif(exif=>{exif.Exif[piexif.ExifIFD.UserComment]=writer.encodeUserComment(params+' é');});
+ const parsed=await reader.parseDeepMetadata(file);
+ assert.equal(parsed.aiWorkflow.type,'Stable Diffusion');assert.equal(parsed.aiWorkflow.seed,'123');assert.equal(parsed.aiWorkflow.prompt,'a red cat');assert.equal(parsed.aiWorkflow.model,'sdxl é');
+ assert.equal(parsed.rawMetadata.exif.UserComment,params+' é');assert.equal(reader.decodeUserComment('ASCII\0\0\0plain'),'plain');
+});
+test('Running batch jobs can be cancelled between images',async()=>{
+ store.getState().clearFiles();await store.getState().addFiles([fixture('jpg','image/jpeg'),fixture('png','image/png'),fixture('webp','image/webp')]);
+ let cancelled=false;
+ const ok=await withStubbedImage(()=>{if(!cancelled){cancelled=true;store.getState().cancelBatch();}},()=>store.getState().stripAllMetadataBatch());
+ assert.equal(ok,false);const job=store.getState().batchJobs[0];
+ assert.equal(job.status,'CANCELLED');assert.equal(job.completed,1);assert.match(job.errors.at(-1),/2 image\(s\) were not processed because the job was cancelled/);
+ assert.equal(store.getState().isProcessing,false);
+});
+test('AI batch SEO writes results into images and stops on quota errors',async()=>{
+ const ai=require('../src/lib/ai-service.ts');const original=ai.generateImageSeoMetadata;let calls=0,quotaFailures=1;
+ ai.generateImageSeoMetadata=async(_key,_blob,_model,signal)=>{assert.ok(signal instanceof AbortSignal);calls++;if(calls===2&&quotaFailures-->0)throw ai.classifyGeminiError({status:429});return {title:'AI Title',caption:'AI caption',altText:'AI alt',keywords:['ai'],privacyFlags:{containsFaces:false,containsIdentifiableText:true}};};
+ try{
+  store.setState({aiEnabled:true,geminiApiKey:'test-key'});
+  const ids=store.getState().files.map(f=>f.id);
+  assert.equal(await store.getState().batchGenerateSeo(ids,{save:true}),false);
+  const job=store.getState().batchJobs[0];assert.equal(job.type,'AI_SEO');assert.equal(job.status,'FAILED');assert.equal(job.completed,1);assert.equal(job.failed,1);assert.equal(calls,2);
+  const file=store.getState().files.find(f=>f.id===ids[0]);assert.equal(file.seoData.title,'AI Title');assert.equal(file.seoData.privacyFlags.containsIdentifiableText,true);
+  const written=await reader.parseDeepMetadata(new File([file.modifiedBlob],file.name,{type:file.type}));assert.equal(written.seoData.altText,'AI alt');
+  calls=0;assert.equal(await store.getState().batchGenerateSeo(ids,{skipComplete:true,save:false}),true);assert.equal(calls,2);
+ }finally{ai.generateImageSeoMetadata=original;store.setState({aiEnabled:false,geminiApiKey:''});}
+});
+test('CSV export escapes cells and neutralizes spreadsheet formulas',()=>{
+ const {buildMetadataCsv,metadataJson}=require('../src/lib/catalog-export.ts');
+ const file={name:'=cmd|calc.jpg',type:'image/jpeg',width:10,height:5,size:99,isDirty:true,seoData:{title:'Say "hi", world',caption:'line1\nline2',altText:'',keywords:['a','b']},rawMetadata:{exif:{Artist:'+Artist',DateTimeOriginal:new Date(2026,0,2,3,4,5)},gps:{latitude:-33.5,longitude:151.2}},privacyReport:{hasGps:true,riskLevel:'HIGH',score:55,issues:[{title:'Geographic Location Exposed'}]},aiWorkflow:{detected:false}};
+ const lines=buildMetadataCsv([file]).replace(/^﻿/,'').split('\r\n');
+ assert.match(lines[0],/^Filename,Format,/);
+ assert.ok(lines[1].startsWith(`'=cmd|calc.jpg,image/jpeg,10,5,99,"Say ""hi"", world","line1`));
+ assert.ok(lines.join('\n').includes(`'+Artist`));assert.ok(lines.join('\n').includes('2026:01:02 03:04:05'));assert.ok(lines.join('\n').includes(',-33.5,151.2,HIGH,55,'));
+ const json=metadataJson({bytes:new Uint8Array(5),big:10n});assert.equal(JSON.parse(json).bytes,'[binary 5 bytes]');assert.equal(JSON.parse(json).big,'10');
+});
 (async()=>{let failures=0;for(const {name,run} of tests){try{await run();console.log(`PASS ${name}`);}catch(e){failures++;console.error(`FAIL ${name}\n${e.stack}`);}}console.log(`${tests.length-failures}/${tests.length} passed`);process.exit(failures?1:0);})();

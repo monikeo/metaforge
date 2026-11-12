@@ -4,7 +4,7 @@ import { getGpsCoordinates } from '@/lib/privacy-rules';
 import { copyText } from '@/lib/clipboard';
 
 import React from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -26,7 +26,7 @@ interface PrivacyAuditorProps {
 }
 
 export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
-  const { files, stripGps, sanitizeForSocial, stripAllMetadata } = useMetaForgeStore();
+  const { files, stripGps, sanitizeForSocial, stripAllMetadata, isProcessing } = useMetaForge('files', 'stripGps', 'sanitizeForSocial', 'stripAllMetadata', 'isProcessing');
   const file = files.find((f) => f.id === fileId);
   const [copiedCoords, setCopiedCoords] = React.useState(false);
 
@@ -210,6 +210,7 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
         {report.hasGps && (
           <button
             onClick={() => stripGps(file.id)}
+            disabled={isProcessing}
             className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center justify-center gap-1.5 touch-target cursor-pointer active:scale-95"
           >
             <MapPin className="w-3.5 h-3.5" />
@@ -219,6 +220,7 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
 
         <button
           onClick={() => sanitizeForSocial(file.id)}
+          disabled={isProcessing}
           className="flex-1 py-2.5 px-3 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition flex items-center justify-center gap-1.5 touch-target cursor-pointer active:scale-95"
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -227,6 +229,7 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
 
         <button
           onClick={() => stripAllMetadata(file.id)}
+          disabled={isProcessing}
           className="py-2.5 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition flex items-center justify-center gap-1.5 touch-target cursor-pointer active:scale-95"
         >
           <Trash2 className="w-3.5 h-3.5 text-neutral-400" />

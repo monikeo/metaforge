@@ -1,24 +1,29 @@
 'use client';
 
 import React from 'react';
-import { useMetaForgeStore } from '@/lib/store';
-import { BatchJob } from '@/lib/types';
-import { 
-  Cpu, 
-  MapPinOff, 
-  ShieldCheck, 
-  Download, 
-  Trash2
+import { useMetaForge } from '@/lib/store';
+import type { BatchJob } from '@/lib/types';
+import {
+  Cpu,
+  MapPinOff,
+  ShieldCheck,
+  Download,
+  Trash2,
+  Square
 } from 'lucide-react';
 
+const STATUS_STYLES: Record<BatchJob['status'], { badge: string; bar: string; icon: string }> = {
+  RUNNING: { badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/30', bar: 'bg-gradient-to-r from-purple-500 to-indigo-500', icon: 'bg-purple-500/10 border-purple-500/20 text-purple-400 animate-pulse' },
+  QUEUED: { badge: 'bg-neutral-800 text-neutral-400', bar: 'bg-neutral-600', icon: 'bg-neutral-800 border-neutral-700 text-neutral-400' },
+  PAUSED: { badge: 'bg-neutral-800 text-neutral-400', bar: 'bg-neutral-600', icon: 'bg-neutral-800 border-neutral-700 text-neutral-400' },
+  COMPLETED: { badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', bar: 'bg-emerald-500', icon: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
+  FAILED: { badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/30', bar: 'bg-rose-500', icon: 'bg-rose-500/10 border-rose-500/20 text-rose-400' },
+  CANCELLED: { badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/30', bar: 'bg-amber-500', icon: 'bg-amber-500/10 border-amber-500/20 text-amber-400' }
+};
+
 export default function BatchJobsView() {
-  const { files, stripAllGps, batchSanitizeForSocial, exportAllZip, batchJobs: jobs, clearCompletedJobs, isProcessing } = useMetaForgeStore();
-  const startNewBatchJob = async (_name: string, type: BatchJob['type']) => {
-    if (type === 'STRIP_GPS') await stripAllGps();
-    else if (type === 'SANITIZE_SOCIAL') await batchSanitizeForSocial();
-    else if (type === 'EXPORT_ZIP') await exportAllZip();
-  };
-  const handleClearCompleted = clearCompletedJobs;
+  const { files, stripAllGps, batchSanitizeForSocial, exportAllZip, batchJobs: jobs, clearCompletedJobs, cancelBatch, isProcessing } =
+    useMetaForge('files', 'stripAllGps', 'batchSanitizeForSocial', 'exportAllZip', 'batchJobs', 'clearCompletedJobs', 'cancelBatch', 'isProcessing');
 
   return (
     <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
@@ -30,14 +35,14 @@ export default function BatchJobsView() {
             Background Batch Processing Queue
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Asynchronous task queue monitor. Live progress and per-file results for this browser session.
+            Asynchronous task queue monitor. Live progress and per-file results for this browser session. Running jobs can be cancelled between images.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             disabled={isProcessing || files.length === 0}
-            onClick={() => startNewBatchJob('Batch GPS Strip Queue', 'STRIP_GPS')}
+            onClick={() => { void stripAllGps(); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
             <MapPinOff className="w-3.5 h-3.5 text-rose-400" />
@@ -46,7 +51,7 @@ export default function BatchJobsView() {
 
           <button
             disabled={isProcessing || files.length === 0}
-            onClick={() => startNewBatchJob('Social OPSEC Batch Sanitize', 'SANITIZE_SOCIAL')}
+            onClick={() => { void batchSanitizeForSocial(); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
@@ -55,7 +60,7 @@ export default function BatchJobsView() {
 
           <button
             disabled={isProcessing || files.length === 0}
-            onClick={() => startNewBatchJob('Package All as Compressed ZIP', 'EXPORT_ZIP')}
+            onClick={() => { void exportAllZip(); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
           >
             <Download className="w-3.5 h-3.5" />
@@ -64,7 +69,7 @@ export default function BatchJobsView() {
 
           {jobs.some((j) => j.status !== 'RUNNING' && j.status !== 'QUEUED') && (
             <button
-              onClick={handleClearCompleted}
+              onClick={clearCompletedJobs}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-neutral-400 hover:text-white hover:bg-neutral-800 border border-transparent hover:border-neutral-700 transition cursor-pointer"
               title="Clear completed tasks"
             >
@@ -79,7 +84,7 @@ export default function BatchJobsView() {
         {!jobs.length && <p className="p-6 rounded-2xl border border-neutral-800 text-sm text-neutral-400 text-center">No jobs yet. Import images and run a batch operation to see its progress here.</p>}
         {jobs.map((job) => {
           const isRunning = job.status === 'RUNNING';
-          const isCompleted = job.status === 'COMPLETED';
+          const style = STATUS_STYLES[job.status] || STATUS_STYLES.QUEUED;
 
           return (
             <div
@@ -87,48 +92,45 @@ export default function BatchJobsView() {
               className="p-4 sm:p-5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-3 shadow-md"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl border ${
-                    isRunning
-                      ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 animate-pulse'
-                      : isCompleted
-                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                      : 'bg-neutral-800 border-neutral-700 text-neutral-400'
-                  }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`p-2 rounded-xl border ${style.icon}`}>
                     <Cpu className="w-4 h-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-sm font-bold text-white">{job.name}</h3>
-                    <p className="text-[11px] font-mono text-neutral-500">
-                      ID: {job.id} • Started {new Date(job.createdAt).toLocaleTimeString()}
+                    <p className="text-[11px] font-mono text-neutral-500 truncate">
+                      Started {new Date(job.createdAt).toLocaleTimeString()} • {job.id.slice(0, 8)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${
-                    isRunning
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : isCompleted
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-neutral-800 text-neutral-400'
-                  }`}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider ${style.badge}`}>
                     {job.status}
                   </span>
 
                   <span className="text-xs font-mono font-bold text-neutral-200">
                     {job.completed} / {job.total} images
                   </span>
+
+                  {isRunning && (
+                    <button
+                      type="button"
+                      onClick={cancelBatch}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-neutral-800 hover:bg-rose-600 text-neutral-200 border border-neutral-700 transition"
+                    >
+                      <Square className="w-3 h-3" />
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {job.errors.length > 0 && <ul className="text-xs text-rose-300 break-words space-y-1" aria-label="File errors">{job.errors.map((error, index) => <li key={index}>{error}</li>)}</ul>}
+              {job.errors.length > 0 && <ul className="text-xs text-rose-300 break-words space-y-1 max-h-40 overflow-y-auto" aria-label="File errors">{job.errors.map((error, index) => <li key={index}>{error}</li>)}</ul>}
               {/* Progress Bar */}
-              <div className="w-full bg-neutral-950 h-2.5 rounded-full overflow-hidden border border-neutral-800">
+              <div className="w-full bg-neutral-950 h-2.5 rounded-full overflow-hidden border border-neutral-800" role="progressbar" aria-label={`${job.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.progress}>
                 <div
-                  className={`h-full transition-all duration-300 ${
-                    isRunning ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-emerald-500'
-                  }`}
+                  className={`h-full transition-all duration-300 ${style.bar}`}
                   style={{ width: `${job.progress}%` }}
                 />
               </div>

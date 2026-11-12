@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react';
 
 export default function Toasts() {
-  const { toasts, removeToast } = useMetaForgeStore();
+  const { toasts, removeToast } = useMetaForge('toasts', 'removeToast');
 
   if (!toasts.length) return null;
 
@@ -33,7 +33,7 @@ export default function Toasts() {
         return (
           <div
             key={toast.id}
-            className={`pointer-events-none flex items-start gap-2.5 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-2 duration-200 ${colorClasses}`}
+            className={`pointer-events-none flex items-start gap-2.5 p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md transition-all animate-slide-up ${colorClasses}`}
             role={toast.type === 'error' ? 'alert' : 'status'}
           >
             <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${iconColor}`} />
