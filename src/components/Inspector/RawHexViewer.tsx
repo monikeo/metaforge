@@ -85,7 +85,7 @@ export default function RawHexViewer({ hexData, fileName, fileSize }: RawHexView
       </div>
 
       <p className="text-[10px] text-neutral-500">
-        Showing first 384 header bytes including magic bytes (e.g. FFD8FFE0 for JPEG, 89504E47 for PNG), marker segments, and Exif APP1 chunks.
+        Showing the first {lines.length * 16 >= 1024 ? `${Math.round(lines.length * 16 / 1024)} KB` : `${lines.length * 16} bytes`} of the current file, including magic bytes (e.g. FFD8FFE0 for JPEG, 89504E47 for PNG), marker segments, and Exif APP1 chunks.
       </p>
     </div>
   );

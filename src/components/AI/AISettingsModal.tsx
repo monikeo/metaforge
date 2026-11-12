@@ -3,21 +3,13 @@
 import ModalOverlay from '@/components/ModalOverlay';
 
 import React, { useState } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { DEFAULT_GEMINI_MODEL, GEMINI_MODELS } from '@/lib/ai-models';
 import { Key, ShieldCheck, Sparkles, X, ExternalLink, Eye, EyeOff } from 'lucide-react';
 
 export default function AISettingsModal() {
-  const { 
-    isAiSettingsOpen, 
-    setIsAiSettingsOpen, 
-    geminiApiKey, 
-    setApiKey, 
-    selectedModel, 
-    setSelectedModel,
-    aiEnabled,
-    setAiEnabled
-  } = useMetaForgeStore();
+  const { isAiSettingsOpen, setIsAiSettingsOpen, geminiApiKey, setApiKey, selectedModel, setSelectedModel, aiEnabled, setAiEnabled } =
+    useMetaForge('isAiSettingsOpen', 'setIsAiSettingsOpen', 'geminiApiKey', 'setApiKey', 'selectedModel', 'setSelectedModel', 'aiEnabled', 'setAiEnabled');
 
   const [previousOpen, setPreviousOpen] = useState(false);
   const [inputKey, setInputKey] = useState(geminiApiKey);
@@ -40,7 +32,7 @@ export default function AISettingsModal() {
   };
 
   return (
-    <ModalOverlay onClose={() => setIsAiSettingsOpen(false)} label="AI settings" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={() => setIsAiSettingsOpen(false)} label="AI settings" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
       <div 
         className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 sm:gap-5 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6"
       >
@@ -106,6 +98,7 @@ export default function AISettingsModal() {
                 spellCheck={false}
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSave(); } }}
                 className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-700/70 rounded-xl text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 font-mono pr-10 min-h-[44px]"
               />
               <button

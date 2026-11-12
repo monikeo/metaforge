@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import { MetaFile } from '@/lib/types';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
+import { formatBytes } from '@/lib/format';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -23,7 +24,7 @@ interface ImageCanvasPreviewProps {
 }
 
 export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
-  const { files, setActiveFile, exportSingle, exportMetadataJson, renameFile } = useMetaForgeStore();
+  const { files, setActiveFile, exportSingle, exportMetadataJson, renameFile } = useMetaForge('files', 'setActiveFile', 'exportSingle', 'exportMetadataJson', 'renameFile');
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -43,6 +44,9 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
     setScale(1);
     setPosition({ x: 0, y: 0 });
   }
+
+  // Batch renames and presets can change the name while the editor is closed.
+  const startRename = () => { setNameInput(file.name); setIsEditingName(true); };
 
   const handleSaveName = () => {
     if (nameInput.trim() && nameInput.trim() !== file.name) {
@@ -143,6 +147,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
             <div className="flex items-center gap-1.5">
               <input
                 type="text"
+                aria-label="File name"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -176,14 +181,14 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           ) : (
             <div className="flex items-center gap-1.5 min-w-0">
               <span
-                onClick={() => setIsEditingName(true)}
+                onClick={startRename}
                 title="Click to rename file"
                 className="text-xs font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[min(16rem,50vw)] cursor-pointer hover:text-purple-300 transition"
               >
                 {file.name}
               </span>
               <button
-                onClick={() => setIsEditingName(true)}
+                onClick={startRename}
                 title="Rename file"
                 className="p-1 rounded-lg text-neutral-500 hover:text-white min-w-[32px] min-h-[32px] flex items-center justify-center touch-press"
               >
@@ -324,7 +329,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <span>•</span>
           <span>{file.width && file.height ? `${file.width}×${file.height} px` : 'N/A'}</span>
           <span>•</span>
-          <span>{(file.size / 1024).toFixed(1)} KB</span>
+          <span>{formatBytes(file.size)}</span>
         </div>
 
         {/* Mobile Swipe Hint Badge (Visible briefly or when scale is 1 on mobile) */}

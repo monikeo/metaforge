@@ -3,8 +3,7 @@
 import ModalOverlay from '@/components/ModalOverlay';
 
 import React, { useState, useRef } from 'react';
-import { validatePreset } from '@/lib/store';
-import { useMetaForgeStore } from '@/lib/store';
+import { BUILT_IN_PRESET_IDS, validatePreset, useMetaForge } from '@/lib/store';
 import { 
   Sliders, 
   Plus, 
@@ -22,16 +21,8 @@ import {
 import { saveAs } from 'file-saver';
 
 export default function PresetsView() {
-  const { 
-    presets, 
-    files, 
-    activeFileId, 
-    applyPreset, 
-    createPreset, 
-    deletePreset,
-    addToast,
-    isProcessing
-  } = useMetaForgeStore();
+  const { presets, files, activeFileId, applyPreset, createPreset, deletePreset, addToast, isProcessing } =
+    useMetaForge('presets', 'files', 'activeFileId', 'applyPreset', 'createPreset', 'deletePreset', 'addToast', 'isProcessing');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,6 +37,7 @@ export default function PresetsView() {
   const [keywords, setKeywords] = useState('');
   const [stripGps, setStripGps] = useState(true);
   const [stripSerials, setStripSerials] = useState(false);
+  const [filenameTemplate, setFilenameTemplate] = useState('');
 
   const handleApply = async (presetId: string) => {
     let targets: string[] = [];
@@ -61,19 +53,21 @@ export default function PresetsView() {
     e.preventDefault();
     if (!name.trim()) return;
 
-    createPreset({
+    const created = createPreset({
       name: name.trim(),
       category,
       description: description.trim() || 'Custom user configuration',
       tags: {
         artist: artist.trim() || undefined,
         copyright: copyright.trim() || undefined,
-        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean)
+        keywords: keywords.split(/[,;\n]/).map((k) => k.trim()).filter(Boolean)
       },
       stripGps,
       stripSerials,
-      filenameTemplate: '{title}-{counter}'
+      // Only rename files when the user asked for it.
+      filenameTemplate: filenameTemplate.trim() || undefined
     });
+    if (!created) return;
 
     setIsModalOpen(false);
     setName('');
@@ -81,6 +75,7 @@ export default function PresetsView() {
     setArtist('');
     setCopyright('');
     setKeywords('');
+    setFilenameTemplate('');
     addToast({
       type: 'success',
       title: 'Preset Saved',
@@ -110,8 +105,7 @@ export default function PresetsView() {
         const importedArray = Array.isArray(parsed) ? parsed : [parsed];
         if (importedArray.length > 100) throw new Error('Import up to 100 presets at a time.');
         const validated = importedArray.map(validatePreset);
-        validated.forEach(createPreset);
-        const count = validated.length;
+        const count = validated.filter((preset) => createPreset(preset)).length;
         addToast({
           type: 'success',
           title: 'Presets Imported',
@@ -126,9 +120,10 @@ export default function PresetsView() {
       }
     };
     reader.onerror = () => addToast({ type: 'error', title: 'Import Failed', description: 'Could not read the preset file.' });
+    // Reset first so choosing the same file again still triggers a change.
+    e.target.value = '';
     if (file.size > 1024 * 1024) { addToast({ type: 'error', title: 'Import Failed', description: 'Preset files must be 1 MB or smaller.' }); return; }
     reader.readAsText(file);
-    e.target.value = '';
   };
 
   return (
@@ -229,11 +224,15 @@ export default function PresetsView() {
                     </span>
                   </div>
 
-                  {preset.id.startsWith('preset-') && !['preset-seo-web', 'preset-photographer', 'preset-ecommerce', 'preset-social-opsec'].includes(preset.id) && (
+                  {!BUILT_IN_PRESET_IDS.includes(preset.id) && (
                     <button
-                      onClick={() => deletePreset(preset.id)}
+                      onClick={() => {
+                        deletePreset(preset.id);
+                        addToast({ type: 'info', title: 'Preset Deleted', description: `Removed "${preset.name}".` });
+                      }}
                       className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 touch-target sm:min-h-0 sm:min-w-0"
                       title="Delete preset"
+                      aria-label={`Delete preset ${preset.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -249,6 +248,7 @@ export default function PresetsView() {
                   {preset.tags.keywords?.length ? (
                     <div>Keywords: {preset.tags.keywords.join(', ')}</div>
                   ) : null}
+                  {preset.filenameTemplate && <div>Renames to: {preset.filenameTemplate}</div>}
                   <div className="text-emerald-400 pt-1">
                     {preset.stripGps ? '✓ Strips GPS' : '✕ Keeps GPS'} • {preset.stripSerials ? '✓ Strips Serials' : '✕ Keeps Serials'}
                   </div>
@@ -270,7 +270,7 @@ export default function PresetsView() {
 
       {/* Create Preset Modal (Bottom Sheet on mobile, modal on desktop) */}
       {isModalOpen && (
-        <ModalOverlay onClose={() => setIsModalOpen(false)} label="Create preset" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+        <ModalOverlay onClose={() => setIsModalOpen(false)} label="Create preset" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
           <div className="w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 sm:p-6 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6">
             {/* Mobile Pull Handle */}
             <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -313,6 +313,7 @@ export default function PresetsView() {
                     <option value="SEO">SEO</option>
                     <option value="Photography">Photography</option>
                     <option value="E-commerce">E-commerce</option>
+                    <option value="Stock">Stock</option>
                     <option value="Privacy">Privacy</option>
                     <option value="Custom">Custom</option>
                   </select>
@@ -350,6 +351,19 @@ export default function PresetsView() {
                   onChange={(e) => setKeywords(e.target.value)}
                   className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-semibold text-neutral-300" htmlFor="preset-filename-template">Rename Files (optional)</label>
+                <input
+                  id="preset-filename-template"
+                  type="text"
+                  placeholder="Leave empty to keep names, or e.g. {title}-{counter}"
+                  value={filenameTemplate}
+                  onChange={(e) => setFilenameTemplate(e.target.value)}
+                  className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-white font-mono focus:outline-none focus:border-purple-500 min-h-[40px] sm:min-h-0"
+                />
+                <span className="text-[11px] text-neutral-500">Tokens: {'{title}'}, {'{artist}'}, {'{date}'}, {'{counter}'}</span>
               </div>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 py-1">

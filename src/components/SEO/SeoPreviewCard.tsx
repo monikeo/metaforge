@@ -112,7 +112,7 @@ export default function SeoPreviewCard({ file }: SeoPreviewCardProps) {
 
         {platform === 'facebook' && (
           <div className="flex flex-col rounded-xl overflow-hidden border border-neutral-800 bg-neutral-900/50">
-            <div className="relative aspect-1.91/1 w-full bg-neutral-850 overflow-hidden">
+            <div className="relative aspect-[1.91/1] w-full bg-neutral-850 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewImgUrl}

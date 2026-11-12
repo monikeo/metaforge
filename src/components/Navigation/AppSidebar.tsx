@@ -5,7 +5,7 @@ import ModalOverlay from '@/components/ModalOverlay';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { AppView } from '@/lib/types';
 import { workspaceHref } from '@/lib/navigation';
 import { 
@@ -25,12 +25,7 @@ import {
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { 
-    currentView, 
-    files, 
-    setCurrentView,
-    setIsCommandPaletteOpen 
-  } = useMetaForgeStore();
+  const { currentView, files, setCurrentView, setIsCommandPaletteOpen } = useMetaForge('currentView', 'files', 'setCurrentView', 'setIsCommandPaletteOpen');
 
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
   const [isTabletCollapsed, setIsTabletCollapsed] = useState(true);
@@ -119,7 +114,7 @@ export default function AppSidebar() {
                 </div>
 
                 {item.count !== undefined && item.count > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono shrink-0 ${
+                  <span className={`px-1.5 py-px rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono shrink-0 ${
                     isTabletCollapsed ? 'hidden 2xl:inline-block' : 'inline-block'
                   }`}>
                     {item.count}
@@ -271,7 +266,7 @@ export default function AppSidebar() {
 
       {/* Mobile "More" Slide-up Sheet */}
       {isMobileMoreOpen && (
-        <ModalOverlay visibleWhen="(max-width: 767px)" onClose={() => setIsMobileMoreOpen(false)} label="More tools" className="md:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-xs p-3 animate-in fade-in duration-150">
+        <ModalOverlay visibleWhen="(max-width: 767px)" onClose={() => setIsMobileMoreOpen(false)} label="More tools" className="md:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/80 backdrop-blur-xs p-3 animate-fade-in">
           <div className="w-full rounded-3xl bg-neutral-900 border border-neutral-800 p-5 flex flex-col gap-4 shadow-2xl pb-safe">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <h3 className="text-sm font-bold text-white">More Options &amp; Tools</h3>

@@ -4,7 +4,8 @@ import { getGpsCoordinates } from '@/lib/privacy-rules';
 import { copyText } from '@/lib/clipboard';
 
 import React, { useState } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
+import { formatMetadataValue, isBinaryValue } from '@/lib/format';
 import TagEditorModal from './TagEditorModal';
 import { 
   ChevronDown, 
@@ -29,7 +30,7 @@ interface MetadataExplorerProps {
 }
 
 export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
-  const { files, updateTag, deleteTag, stripGps } = useMetaForgeStore();
+  const { files, updateTag, deleteTag, stripGps } = useMetaForge('files', 'updateTag', 'deleteTag', 'stripGps');
   const file = files.find((f) => f.id === fileId);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,9 +60,8 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
     setOpenSections((prev) => ({ ...prev, [s]: !prev[s] }));
   };
 
-  const handleCopy = async (tagPath: string, value: any) => {
-    const str = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
-    if (!(await copyText(str))) return;
+  const handleCopy = async (tagPath: string, value: string) => {
+    if (!(await copyText(value))) return;
     setCopiedKey(tagPath);
     setTimeout(() => setCopiedKey(null), 1800);
   };
@@ -90,27 +90,14 @@ export default function MetadataExplorer({ fileId }: MetadataExplorerProps) {
   const filterEntries = (entries: [string, any][]) => {
     if (!searchTerm.trim()) return entries;
     const term = searchTerm.toLowerCase();
-    return entries.filter(([k, v]) => {
-      const valStr = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
-      return k.toLowerCase().includes(term) || valStr.toLowerCase().includes(term);
-    });
+    return entries.filter(([k, v]) => k.toLowerCase().includes(term) || formatMetadataValue(v).toLowerCase().includes(term));
   };
 
   const renderTagRow = (sectionName: string, key: string, value: any, isEditable = true) => {
-    isEditable = isEditable && !['ExifIFD', 'GPSIFD', 'InteropIFD', 'ExifImageWidth', 'ExifImageHeight', 'MakerNote'].includes(key);
+    isEditable = isEditable && !isBinaryValue(value) && !['ExifIFD', 'GPSIFD', 'GpsIFD', 'InteropIFD', 'ExifImageWidth', 'ExifImageHeight', 'MakerNote', 'ThumbnailOffset', 'ThumbnailLength'].includes(key);
     const fullPath = `${sectionName}.${key}`;
     const isCopied = copiedKey === fullPath;
-
-    let displayValue: string;
-    if (value === null || value === undefined) {
-      displayValue = 'null';
-    } else if (value instanceof Date) {
-      displayValue = value.toISOString();
-    } else if (typeof value === 'object') {
-      displayValue = JSON.stringify(value);
-    } else {
-      displayValue = String(value);
-    }
+    const displayValue = formatMetadataValue(value);
 
     return (
       <div

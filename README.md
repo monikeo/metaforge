@@ -24,7 +24,7 @@ npm run build
 npm audit
 ```
 
-The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, immutable history, concurrent edits, batch results, presets, filenames, and sitemap validation. Browser decoding is verified separately from the test suite's Image stub.
+The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, immutable history, concurrent edits, batch results and cancellation, presets, filenames, sitemap validation, EXIF date and UTF-8 encoding, snapshot integrity against edits made by other tools, AI batch generation with a mocked Gemini client, and CSV/JSON export escaping. Browser decoding is verified separately from the test suite's Image stub.
 
 For browser QA, install Firefox through the included Playwright dependency, start the production app on port 3100, and run:
 
@@ -45,6 +45,13 @@ For an online development smoke check, point `BASE_URL` at the dev server and se
 The full dependency audit, including development tools, is clear. Oxlint replaces the vulnerable ESLint dependency chain. The migrated configuration preserves 78 supported rules, including React Hooks, React Compiler, Next.js and accessibility checks. `test:lint` verifies that invalid hooks, blocking scripts and invalid ARIA attributes are still rejected. Lint warnings fail the check. The migration omitted deprecated/obsolete ESLint bookkeeping rules and the unavailable Next.js relative-location-assignment rule; this app uses validated workspace navigation helpers instead.
 
 Development and production builds use Webpack because Turbopack repeatedly failed to launch its CSS worker on the audited Windows host. Fonts are local, so builds do not need Google Fonts access.
+
+## Working with images
+
+- **Import:** choose files, drop images or whole folders onto the page, or paste a copied image or screenshot (Ctrl/⌘+V). Dropping a file anywhere in the studio imports it rather than navigating away from your session.
+- **Batch jobs:** GPS removal, sanitizing, presets, bulk edits, renames, and AI SEO run one image at a time. A running job can be cancelled from the header or the Batch Processing view; images already processed keep their changes.
+- **AI SEO in bulk:** with a Gemini key configured, *Batch Edit → AI SEO* (or the command menu) generates a title, caption, alt text, and keywords for selected images. It can skip images that are already complete and either save results into the files or keep them as drafts. Key, permission, and quota errors stop the job instead of failing every remaining image.
+- **Exports:** single images, a ZIP of all or selected images, a JSON catalog, and a CSV spreadsheet (titles, captions, keywords, attribution, camera data, GPS, and privacy findings). CSV cells that start with formula characters are prefixed so spreadsheets do not execute them.
 
 ## Data and privacy
 
@@ -71,6 +78,8 @@ Development and production builds use Webpack because Turbopack repeatedly faile
 Imports validate file signatures and allow up to 100 MB per image, with a queue limit of 500 images and 256 MB of source files. Browser canvas conversion is limited to 64 megapixels. Corrupt or unsupported writes produce an error and retain the last valid image.
 
 Custom tags are stored in a MetaForge XMP namespace. Standard title, description, creator, rights, and keywords are also written as Dublin Core XMP; accessible alt text uses the IPTC XMP accessibility property. Other applications may not display custom fields. Existing IPTC editorial fields migrate to XMP when edited.
+
+Equivalent fields are kept in step: artist, copyright, and caption are written to native EXIF (JPEG, and PNG/WebP files that already carry EXIF) as well as IPTC and XMP, so other apps show the same values. EXIF text is stored as UTF-8, which ExifTool and current operating systems read, so `©` and non-Latin names survive. Date tags are written in the EXIF `YYYY:MM:DD HH:MM:SS` format; ISO dates are converted. The MetaForge XMP snapshot never contains GPS coordinates, and it records checksums of the native EXIF and the visible XMP fields: if another tool edits the file later, its values take precedence over the older snapshot on re-import. XMP written by other tools (for example Lightroom's `dc:title`, `dc:description`, `dc:subject`, and alt text) fills the SEO fields when IPTC is absent, and Stable Diffusion parameters stored in a Unicode EXIF `UserComment` are decoded.
 
 GPS cleaning also removes secondary packets, MakerNotes, and thumbnails that could duplicate coordinates; PNG and WebP GPS cleaning removes their descriptive metadata. Social cleaning retains artist/copyright attribution where present. Full cleaning retains rendering and color information for PNG/WebP. Rotated JPEGs may require re-encoding to preserve their displayed orientation. Unsupported formats may be converted to PNG with a matching filename extension. The privacy score flags detected metadata; it does not analyze identifying content visible in the pixels.
 

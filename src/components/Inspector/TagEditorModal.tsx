@@ -4,6 +4,8 @@ import ModalOverlay from '@/components/ModalOverlay';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Check, Plus } from 'lucide-react';
+import { editableMetadataValue } from '@/lib/format';
+import { isExifDateTag } from '@/lib/metadata-writer';
 
 interface TagEditorModalProps {
   isOpen: boolean;
@@ -32,9 +34,7 @@ export default function TagEditorModal({
 }: TagEditorModalProps) {
   const [currentSection, setCurrentSection] = useState(initialSection || 'iptc');
   const [currentKey, setCurrentKey] = useState(initialKey || '');
-  const [val, setVal] = useState(
-    typeof initialValue === 'object' ? JSON.stringify(initialValue, null, 2) : String(initialValue ?? '')
-  );
+  const [val, setVal] = useState(editableMetadataValue(initialValue));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -55,11 +55,7 @@ export default function TagEditorModal({
     if (isOpen) {
       setCurrentSection(initialSection || 'iptc');
       setCurrentKey(initialKey || '');
-      setVal(
-        typeof initialValue === 'object'
-          ? JSON.stringify(initialValue, null, 2)
-          : String(initialValue ?? '')
-      );
+      setVal(editableMetadataValue(initialValue));
     }
   }
 
@@ -67,15 +63,16 @@ export default function TagEditorModal({
     if (!currentKey.trim() || isSaving) return;
     setIsSaving(true);
     setError('');
+    const trimmed = val.trim();
     let parsed: any = val;
-    if ((val.startsWith('{') && val.endsWith('}')) || (val.startsWith('[') && val.endsWith(']'))) {
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
       try {
-        parsed = JSON.parse(val);
+        parsed = JSON.parse(trimmed);
       } catch {
         parsed = val;
       }
-    } else if (typeof initialValue === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
-      parsed = Number(val);
+    } else if (typeof initialValue === 'number' && !isNaN(Number(trimmed)) && trimmed !== '') {
+      parsed = Number(trimmed);
     }
 
     try {
@@ -110,9 +107,13 @@ export default function TagEditorModal({
     commitSave();
   };
 
+  const isDateTag = currentSection === 'exif' && isExifDateTag(currentKey.trim());
+  const isKeywordTag = /^(Keywords|subject)$/i.test(currentKey.trim());
   const detectedType = (() => {
     const trimmed = val.trim();
     if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) return 'JSON';
+    if (isDateTag) return 'Date';
+    if (isKeywordTag) return 'List';
     if (!isNaN(Number(trimmed)) && trimmed !== '') return 'Number';
     return 'String';
   })();
@@ -120,7 +121,7 @@ export default function TagEditorModal({
   const suggestions = COMMON_TAG_SUGGESTIONS[currentSection] || [];
 
   return (
-    <ModalOverlay onClose={onClose} label="Edit metadata tag" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={onClose} label="Edit metadata tag" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
       <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[90dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
         {/* Mobile Pull Handle */}
         <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
@@ -214,7 +215,7 @@ export default function TagEditorModal({
               <label className="font-medium text-neutral-400">Tag Value</label>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-neutral-500 font-mono">Format:</span>
-                <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold ${
+                <span className={`px-1.5 py-px rounded text-[10px] font-mono font-semibold ${
                   detectedType === 'JSON'
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                     : detectedType === 'Number'
@@ -235,6 +236,11 @@ export default function TagEditorModal({
               placeholder="Enter tag string, number, or JSON..."
               className="w-full p-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs font-mono text-neutral-100 focus:outline-none focus:border-purple-500 transition"
             />
+            {(isDateTag || isKeywordTag) && (
+              <p className="text-[11px] text-neutral-400 mt-0.5">
+                {isDateTag ? 'Use YYYY:MM:DD HH:MM:SS (local time). ISO dates such as 2026-08-14 19:42 are converted.' : 'Separate keywords with commas, semicolons, or new lines.'}
+              </p>
+            )}
             <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono mt-0.5">
               <span>Press <kbd className="px-1 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">Ctrl+Enter</kbd> to save</span>
               <span><kbd className="px-1 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700">Esc</kbd> to cancel</span>

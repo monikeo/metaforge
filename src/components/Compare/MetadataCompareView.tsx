@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { getGpsCoordinates } from '@/lib/privacy-rules';
+import { firstText } from '@/lib/metadata-writer';
+import type { MetaFile } from '@/lib/types';
 import TagEditorModal from '../Inspector/TagEditorModal';
 import { 
   GitCompare, 
@@ -15,14 +17,15 @@ import {
 } from 'lucide-react';
 
 export default function MetadataCompareView() {
-  const { 
-    files, 
-    compareFileIds, 
-    setCompareFile, 
-    updateTag,
-    setActiveFile,
-    setCurrentView,
-  } = useMetaForgeStore();
+  const { files, compareFileIds, setCompareFile, updateTag, setActiveFile, setCurrentView } =
+    useMetaForge('files', 'compareFileIds', 'setCompareFile', 'updateTag', 'setActiveFile', 'setCurrentView');
+  const exposure = (file: MetaFile | undefined) => {
+    const exif = file?.rawMetadata?.exif || {};
+    const time = Number(exif.ExposureTime);
+    const shutter = time > 0 ? (time < 1 ? `1/${Math.round(1 / time)}s` : `${time}s`) : null;
+    const parts = [shutter, exif.ISO ?? exif.ISOSpeedRatings ? `ISO ${exif.ISO ?? exif.ISOSpeedRatings}` : null, exif.FNumber ? `f/${exif.FNumber}` : null].filter(Boolean);
+    return parts.length ? parts.join(' • ') : '—';
+  };
 
   const fileA = files.find((f) => f.id === compareFileIds[0]) || files[0];
   const fileB = files.find((f) => f.id === compareFileIds[1] && f.id !== fileA?.id) || files.find((f) => f.id !== fileA?.id);
@@ -93,15 +96,15 @@ export default function MetadataCompareView() {
       key: 'Lens Specification', 
       section: 'exif',
       tagKey: 'LensModel',
-      getA: () => fileA?.rawMetadata?.exif?.LensModel || '—', 
-      getB: () => fileB?.rawMetadata?.exif?.LensModel || '—' 
+      getA: () => firstText(fileA?.rawMetadata?.exif?.LensModel) || '—',
+      getB: () => firstText(fileB?.rawMetadata?.exif?.LensModel) || '—'
     },
     { 
-      key: 'Exposure / ISO / Aperture', 
+      key: 'Exposure / ISO / Aperture',
       section: 'exif',
-      tagKey: 'ISOSpeedRatings',
-      getA: () => `ISO ${fileA?.rawMetadata?.exif?.ISOSpeedRatings || 'N/A'} • F/${fileA?.rawMetadata?.exif?.FNumber || 'N/A'}`, 
-      getB: () => `ISO ${fileB?.rawMetadata?.exif?.ISOSpeedRatings || 'N/A'} • F/${fileB?.rawMetadata?.exif?.FNumber || 'N/A'}` 
+      tagKey: 'ISO',
+      getA: () => exposure(fileA),
+      getB: () => exposure(fileB)
     },
     { 
       key: 'GPS Coordinates', 
@@ -114,15 +117,15 @@ export default function MetadataCompareView() {
       key: 'Copyright Notice', 
       section: 'exif',
       tagKey: 'Copyright',
-      getA: () => fileA?.rawMetadata?.exif?.Copyright || fileA?.rawMetadata?.iptc?.CopyrightNotice || '—', 
-      getB: () => fileB?.rawMetadata?.exif?.Copyright || fileB?.rawMetadata?.iptc?.CopyrightNotice || '—' 
+      getA: () => firstText(fileA?.rawMetadata?.exif?.Copyright, fileA?.rawMetadata?.iptc?.CopyrightNotice, fileA?.rawMetadata?.xmp?.rights) || '—',
+      getB: () => firstText(fileB?.rawMetadata?.exif?.Copyright, fileB?.rawMetadata?.iptc?.CopyrightNotice, fileB?.rawMetadata?.xmp?.rights) || '—'
     },
     { 
       key: 'Artist / Author', 
       section: 'exif',
       tagKey: 'Artist',
-      getA: () => fileA?.rawMetadata?.exif?.Artist || fileA?.rawMetadata?.iptc?.Byline || '—', 
-      getB: () => fileB?.rawMetadata?.exif?.Artist || fileB?.rawMetadata?.iptc?.Byline || '—' 
+      getA: () => firstText(fileA?.rawMetadata?.exif?.Artist, fileA?.rawMetadata?.iptc?.Byline, fileA?.rawMetadata?.xmp?.creator) || '—',
+      getB: () => firstText(fileB?.rawMetadata?.exif?.Artist, fileB?.rawMetadata?.iptc?.Byline, fileB?.rawMetadata?.xmp?.creator) || '—'
     },
     { 
       key: 'Dimensions & Format', 

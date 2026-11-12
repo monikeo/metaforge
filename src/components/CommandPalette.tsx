@@ -3,36 +3,31 @@
 import ModalOverlay from '@/components/ModalOverlay';
 
 import React, { useState, useEffect } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
-import { 
-  Search, 
-  Layers, 
-  LayoutDashboard, 
-  GitCompare, 
-  Sliders, 
-  Cpu, 
-  MapPinOff, 
-  ShieldCheck, 
-  Download, 
-  Settings2, 
+import { useMetaForge } from '@/lib/store';
+import {
+  Search,
+  Layers,
+  LayoutDashboard,
+  GitCompare,
+  Sliders,
+  Cpu,
+  MapPinOff,
+  ShieldCheck,
+  Download,
+  Settings2,
   X,
   Image as ImageIcon,
-  FileCode
+  FileCode,
+  FileSpreadsheet,
+  Sparkles
 } from 'lucide-react';
 
 export default function CommandPalette() {
-  const { 
-    isCommandPaletteOpen, 
-    setIsCommandPaletteOpen, 
-    files, 
-    setCurrentView, 
-    setActiveFile, 
-    stripAllGps, 
-    batchSanitizeForSocial, 
-    exportAllZip,
-    exportAllMetadataJson,
-    setIsAiSettingsOpen 
-  } = useMetaForgeStore();
+  const {
+    isCommandPaletteOpen, setIsCommandPaletteOpen, files, selectedFileIds, setCurrentView, setActiveFile, stripAllGps,
+    batchSanitizeForSocial, exportAllZip, exportAllMetadataJson, exportMetadataCsv, batchGenerateSeo, setIsAiSettingsOpen, aiEnabled, geminiApiKey
+  } = useMetaForge('isCommandPaletteOpen', 'setIsCommandPaletteOpen', 'files', 'selectedFileIds', 'setCurrentView', 'setActiveFile', 'stripAllGps',
+    'batchSanitizeForSocial', 'exportAllZip', 'exportAllMetadataJson', 'exportMetadataCsv', 'batchGenerateSeo', 'setIsAiSettingsOpen', 'aiEnabled', 'geminiApiKey');
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -129,6 +124,22 @@ export default function CommandPalette() {
       action: () => exportAllMetadataJson()
     },
     {
+      id: 'cmd-export-csv',
+      title: 'Export: Download Metadata Spreadsheet (CSV)',
+      category: 'Actions',
+      icon: FileSpreadsheet,
+      action: () => exportMetadataCsv()
+    },
+    {
+      id: 'cmd-ai-batch',
+      title: `AI: Generate SEO for ${selectedFileIds.length ? `${selectedFileIds.length} Selected` : 'All'} Images Missing It`,
+      category: 'AI',
+      icon: Sparkles,
+      action: () => aiEnabled && geminiApiKey
+        ? void batchGenerateSeo(selectedFileIds.length ? selectedFileIds : files.map((f) => f.id), { save: true, skipComplete: true })
+        : setIsAiSettingsOpen(true)
+    },
+    {
       id: 'cmd-ai-settings',
       title: 'Configure Google Gemini API Key (BYOK)',
       category: 'Settings',
@@ -180,7 +191,7 @@ export default function CommandPalette() {
   };
 
   return (
-    <ModalOverlay onClose={() => setIsCommandPaletteOpen(false)} label="Command menu" className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 bg-black/80 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <ModalOverlay onClose={() => setIsCommandPaletteOpen(false)} label="Command menu" className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 bg-black/80 backdrop-blur-xs p-4 animate-fade-in">
       <div 
         className="w-full max-w-xl rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl overflow-hidden flex flex-col"
       >

@@ -1,41 +1,15 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge } from '@/lib/store';
 import { UploadCloud, ShieldCheck, Sparkles, MapPin } from 'lucide-react';
 import { createSampleExifImage, createSampleAiPng } from '@/lib/sample-data';
+import { filesFromDataTransfer, importImageFiles } from '@/lib/import-files';
 
 export default function Dropzone() {
-  const { addFiles, addToast, isProcessing } = useMetaForgeStore();
+  const { addFiles, addToast, isProcessing } = useMetaForge('addFiles', 'addToast', 'isProcessing');
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFiles = async (fileList: FileList | null) => {
-    if (isProcessing || !fileList || !fileList.length) return;
-    const allFiles = Array.from(fileList);
-    const validFiles = allFiles.filter(
-      (f) => f.type.startsWith('image/') || f.name.match(/\.(jpe?g|png|webp|avif|tiff?|heic)$/i)
-    );
-    const skippedCount = allFiles.length - validFiles.length;
-
-    if (skippedCount > 0) {
-      addToast({
-        type: 'warning',
-        title: 'Non-Image Files Skipped',
-        description: `${skippedCount} file(s) ignored. MetaForge supports JPEG, PNG, WebP, AVIF, TIFF.`
-      });
-    }
-
-    if (validFiles.length) {
-      await addFiles(validFiles);
-    } else if (allFiles.length > 0) {
-      addToast({
-        type: 'error',
-        title: 'No Supported Images',
-        description: 'Please upload image files (JPEG, PNG, WebP, AVIF, TIFF).'
-      });
-    }
-  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -44,37 +18,39 @@ export default function Dropzone() {
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
+    // Moving between child elements fires dragleave on the parent; only reset when the pointer leaves the zone.
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsDragOver(false);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    await handleFiles(e.dataTransfer.files);
+    // Folder entries must be read before this handler returns.
+    void filesFromDataTransfer(e.dataTransfer).then(importImageFiles);
   };
 
   const handleLoadSampleGps = async () => {
     try {
-    const sample = await createSampleExifImage({
-      title: 'Shibuya Crossing Night Street Photography',
-      cameraMake: 'Sony',
-      cameraModel: 'ILCE-7M4 (A7 IV)',
-      lensModel: 'FE 35mm F1.4 GM',
-      serialNumber: 'SN-7849102-JP',
-      artist: 'Hiroshi Tanaka',
-      copyright: '© 2026 Hiroshi Tanaka. All rights reserved.',
-      latitude: 35.6595,
-      longitude: 139.7005,
-      color: '#0369a1'
-    });
-    await addFiles([sample]);
+      const sample = await createSampleExifImage({
+        title: 'Shibuya Crossing Night Street Photography',
+        cameraMake: 'Sony',
+        cameraModel: 'ILCE-7M4 (A7 IV)',
+        lensModel: 'FE 35mm F1.4 GM',
+        serialNumber: 'SN-7849102-JP',
+        artist: 'Hiroshi Tanaka',
+        copyright: '© 2026 Hiroshi Tanaka. All rights reserved.',
+        latitude: 35.6595,
+        longitude: 139.7005,
+        color: '#0369a1'
+      });
+      await addFiles([sample]);
     } catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try loading an image from your device.' }); }
   };
 
   const handleLoadSampleAi = async () => {
     try {
-    const sample = await createSampleAiPng();
-    await addFiles([sample]);
+      const sample = await createSampleAiPng();
+      await addFiles([sample]);
     } catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try loading an image from your device.' }); }
   };
 
@@ -82,6 +58,7 @@ export default function Dropzone() {
     <div
       role="group"
       aria-label="Import images"
+      data-dropzone
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -90,16 +67,15 @@ export default function Dropzone() {
           ? 'border-purple-500 bg-purple-950/20'
           : 'border-neutral-800 bg-neutral-900/40 hover:border-neutral-700 hover:bg-neutral-900/70'
       }`}
-      onClick={() => { if (!isProcessing) fileInputRef.current?.click(); }}
+      onClick={() => fileInputRef.current?.click()}
     >
       <input
         ref={fileInputRef}
         type="file"
         multiple
         aria-label="Choose image files"
-        disabled={isProcessing}
-        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff,image/heic,image/gif,.heic,.heif"
-        onChange={(e) => { void handleFiles(e.target.files); e.target.value = ''; }}
+        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff,image/heic,image/heif,image/gif,.heic,.heif"
+        onChange={(e) => { void importImageFiles(Array.from(e.target.files || [])); e.target.value = ''; }}
         className="sr-only"
       />
 
@@ -108,10 +84,10 @@ export default function Dropzone() {
       </div>
 
       <h3 className="text-sm font-bold text-white tracking-wide">
-        Drop images here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
+        Drop images or folders here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
       </h3>
       <p className="text-xs text-neutral-400 mt-1">
-        Supports JPEG, PNG, WebP, AVIF, TIFF • 100 MB maximum per image
+        JPEG, PNG, WebP, AVIF, HEIC, TIFF, GIF • 100 MB per image • Paste with Ctrl/⌘+V
       </p>
 
       {/* Privacy Guarantee Tag */}

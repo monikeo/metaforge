@@ -3,21 +3,24 @@
 import ModalOverlay from '@/components/ModalOverlay';
 
 import React, { useState } from 'react';
-import { useMetaForgeStore } from '@/lib/store';
+import { useMetaForge, useMetaForgeStore } from '@/lib/store';
 import { FileCode, Download, Copy, Check, X } from 'lucide-react';
 import { buildImageSitemap } from '@/lib/sitemap';
 import { copyText } from '@/lib/clipboard';
 import { saveAs } from 'file-saver';
 
 export default function SitemapExport() {
-  const { files } = useMetaForgeStore();
+  const { files } = useMetaForge('files');
   const [isOpen, setIsOpen] = useState(false);
   const [domain, setDomain] = useState('https://example.com');
   const [copied, setCopied] = useState(false);
 
+  // Only build the XML while the dialog is open.
   let xmlContent = '', validationError = '';
-  try { xmlContent = buildImageSitemap(domain, files); }
-  catch (error) { validationError = error instanceof Error ? error.message : 'Invalid website URL.'; }
+  if (isOpen) {
+    try { xmlContent = buildImageSitemap(domain, files); }
+    catch (error) { validationError = error instanceof Error ? error.message : 'Invalid website URL.'; }
+  }
   const handleCopy = async () => {
     if (!xmlContent) return;
     setCopied(await copyText(xmlContent));
@@ -41,7 +44,7 @@ export default function SitemapExport() {
       </button>
 
       {isOpen && (
-        <ModalOverlay onClose={() => setIsOpen(false)} label="Image sitemap" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-150">
+        <ModalOverlay onClose={() => setIsOpen(false)} label="Image sitemap" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4 animate-fade-in">
           <div className="w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl bg-neutral-900 border border-neutral-800 shadow-2xl p-5 text-neutral-100 flex flex-col gap-4 max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5">
             {/* Mobile Pull Handle */}
             <div className="w-12 h-1.5 bg-neutral-700/60 rounded-full mx-auto sm:hidden -mt-1 shrink-0" />
