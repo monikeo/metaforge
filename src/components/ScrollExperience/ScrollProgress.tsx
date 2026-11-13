@@ -35,7 +35,7 @@ export default function ScrollProgress({ showBackToTopButton = true }: ScrollPro
       {/* Top Ambient Reading Progress Bar */}
       <div className="fixed top-16 left-0 right-0 h-[2.5px] bg-neutral-900/60 z-40 pointer-events-none">
         <div
-          className="h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-amber-400 transition-[width] duration-75 ease-out shadow-xs shadow-purple-500/50"
+          className="h-full bg-purple-500 transition-[width] duration-75 ease-out shadow-xs"
           style={{ width: `${progress}%` }}
         />
       </div>

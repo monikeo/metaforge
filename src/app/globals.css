@@ -17,6 +17,8 @@
   --breakpoint-xs: 30rem;
   --color-neutral-750: oklch(0.32 0 0);
   --color-neutral-850: oklch(0.237 0 0);
+  /* Tailwind's neutral-500 is 3.8:1 on these dark surfaces, below the 4.5:1 small text needs. It is used almost only for text. */
+  --color-neutral-500: oklch(0.66 0 0);
 }
 
 @media (prefers-color-scheme: dark) {

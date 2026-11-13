@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<BatchJob['status'], { badge: string; bar: string; icon: string }> = {
-  RUNNING: { badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/30', bar: 'bg-gradient-to-r from-purple-500 to-indigo-500', icon: 'bg-purple-500/10 border-purple-500/20 text-purple-400 animate-pulse' },
+  RUNNING: { badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/30', bar: 'bg-purple-500', icon: 'bg-purple-500/10 border-purple-500/20 text-purple-400 animate-pulse' },
   QUEUED: { badge: 'bg-neutral-800 text-neutral-400', bar: 'bg-neutral-600', icon: 'bg-neutral-800 border-neutral-700 text-neutral-400' },
   PAUSED: { badge: 'bg-neutral-800 text-neutral-400', bar: 'bg-neutral-600', icon: 'bg-neutral-800 border-neutral-700 text-neutral-400' },
   COMPLETED: { badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', bar: 'bg-emerald-500', icon: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
@@ -30,8 +30,8 @@ export default function BatchJobsView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-indigo-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-neutral-400" />
             Background Batch Processing Queue
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
@@ -54,14 +54,14 @@ export default function BatchJobsView() {
             onClick={() => { void batchSanitizeForSocial(); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+            <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
             Social Sanitize
           </button>
 
           <button
             disabled={isProcessing || files.length === 0}
             onClick={() => { void exportAllZip(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md"
           >
             <Download className="w-3.5 h-3.5" />
             Batch ZIP Export

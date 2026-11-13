@@ -75,6 +75,8 @@ const DEFAULT_PRESETS: MetadataPreset[] = [
   }
 ];
 export const BUILT_IN_PRESET_IDS = DEFAULT_PRESETS.map((preset) => preset.id);
+/** Import limits, shown in the sidebar and enforced when adding files. */
+export const QUEUE_LIMITS = { files: 500, bytes: 256 * 1024 * 1024 } as const;
 
 interface FilterOptions {
   format: string;
@@ -449,7 +451,7 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
         for (const file of files) {
           try {
             if (generation !== importGeneration) break;
-            if (get().files.length >= 500 || get().files.reduce((size, item) => size + item.originalBlob.size, 0) + file.size > 256 * 1024 * 1024) throw new Error('The queue is limited to 500 images and 256 MB. Export and clear some images before importing more.');
+            if (get().files.length >= QUEUE_LIMITS.files || get().files.reduce((size, item) => size + item.originalBlob.size, 0) + file.size > QUEUE_LIMITS.bytes) throw new Error('The queue is limited to 500 images and 256 MB. Export and clear some images before importing more.');
             const parsed = await parseDeepMetadata(file);
             if (generation !== importGeneration) { URL.revokeObjectURL(parsed.thumbnailUrl); continue; }
             parsed.name = safeFilename(parsed.name, parsed.type);

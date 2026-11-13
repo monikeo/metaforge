@@ -7,9 +7,11 @@ import { createSampleExifImage, createSampleAiPng } from '@/lib/sample-data';
 import { filesFromDataTransfer, importImageFiles } from '@/lib/import-files';
 
 export default function Dropzone() {
-  const { addFiles, addToast, isProcessing } = useMetaForge('addFiles', 'addToast', 'isProcessing');
+  const { addFiles, addToast, isProcessing, files } = useMetaForge('addFiles', 'addToast', 'isProcessing', 'files');
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // With images already loaded the zone shrinks to a bar, so the queue below it keeps the room.
+  const compact = files.length > 0;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -54,6 +56,10 @@ export default function Dropzone() {
     } catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try loading an image from your device.' }); }
   };
 
+  const sampleButton = 'flex items-center gap-1.5 rounded-xl font-semibold transition ' + (compact
+    ? 'px-2 py-1.5 text-[11px] text-neutral-400 hover:text-white hover:bg-neutral-800'
+    : 'px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700');
+
   return (
     <div
       role="group"
@@ -62,7 +68,9 @@ export default function Dropzone() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl transition duration-200 cursor-pointer text-center ${
+      className={`relative flex flex-col border-2 border-dashed rounded-2xl transition duration-200 cursor-pointer has-[input:focus-visible]:border-purple-500 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-purple-500/30 ${
+        compact ? 'gap-2.5 p-3' : 'items-center justify-center p-6 text-center'
+      } ${
         isDragOver
           ? 'border-purple-500 bg-purple-950/20'
           : 'border-neutral-800 bg-neutral-900/40 hover:border-neutral-700 hover:bg-neutral-900/70'
@@ -79,35 +87,49 @@ export default function Dropzone() {
         className="sr-only"
       />
 
-      <div className="p-3 rounded-2xl bg-neutral-800/80 text-neutral-300 border border-neutral-700 mb-3 group-hover:scale-105 transition">
-        <UploadCloud className="w-6 h-6 text-purple-400" />
-      </div>
+      {compact ? (
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 rounded-xl bg-neutral-800/80 border border-neutral-700 shrink-0">
+            <UploadCloud className="w-4 h-4 text-purple-400" aria-hidden="true" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-bold text-white">Add more images</span>
+            <span className="text-[11px] text-neutral-400 leading-snug">Browse, drop images or folders, or paste</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="p-3 rounded-2xl bg-neutral-800/80 text-neutral-300 border border-neutral-700 mb-3 group-hover:scale-105 transition">
+            <UploadCloud className="w-6 h-6 text-purple-400" />
+          </div>
 
-      <h3 className="text-sm font-bold text-white tracking-wide">
-        Drop images or folders here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
-      </h3>
-      <p className="text-xs text-neutral-400 mt-1">
-        JPEG, PNG, WebP, AVIF, HEIC, TIFF, GIF • 100 MB per image • Paste with Ctrl/⌘+V
-      </p>
+          <h3 className="text-sm font-bold text-white tracking-wide">
+            Drop images or folders here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
+          </h3>
+          <p className="text-xs text-neutral-400 mt-1">
+            JPEG, PNG, WebP, AVIF, HEIC, TIFF, GIF • 100 MB per image • Paste with Ctrl/⌘+V
+          </p>
 
-      {/* Privacy Guarantee Tag */}
-      <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
-        <ShieldCheck className="w-3.5 h-3.5" />
-        <span>Local metadata tools • AI analysis is optional</span>
-      </div>
+          {/* Privacy Guarantee Tag */}
+          <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/30 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Local metadata tools • AI analysis is optional</span>
+          </div>
+        </>
+      )}
 
       {/* Quick Sample Buttons */}
       <div
-        className="mt-4 flex flex-wrap items-center justify-center gap-2"
+        className={compact ? 'flex flex-col items-start gap-0.5 -ml-1' : 'flex flex-wrap items-center justify-center gap-2 mt-4'}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={handleLoadSampleGps}
           disabled={isProcessing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+          className={sampleButton}
         >
-          <MapPin className="w-3.5 h-3.5 text-rose-400" />
+          <MapPin className="w-3.5 h-3.5 text-rose-400" aria-hidden="true" />
           Load Sample (GPS + Sony EXIF)
         </button>
 
@@ -115,9 +137,9 @@ export default function Dropzone() {
           type="button"
           onClick={handleLoadSampleAi}
           disabled={isProcessing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
+          className={sampleButton}
         >
-          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+          <Sparkles className="w-3.5 h-3.5 text-neutral-400" aria-hidden="true" />
           Load Sample (AI / ComfyUI)
         </button>
       </div>

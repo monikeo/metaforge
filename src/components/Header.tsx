@@ -6,13 +6,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMetaForge } from '@/lib/store';
+import BrandMark from '@/components/BrandMark';
 import {
   Sparkles,
   ShieldCheck,
   Settings2,
   Download,
   MapPinOff,
-  Flame,
   Shield,
   Layers,
   Info,
@@ -43,28 +43,14 @@ export default function Header() {
         {/* Brand & Main Route Links */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link href="/" prefetch={false} onNavigate={(event) => { if (pathname === '/') { event.preventDefault(); setCurrentView('studio'); } }} className="flex items-center gap-1 min-[400px]:gap-2 sm:gap-2.5 group">
-            <div className="w-7 h-7 min-[400px]:w-8 min-[400px]:h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-lg shadow-purple-600/20 flex items-center justify-center shrink-0">
-              <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
-                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 group-hover:scale-110 transition" />
-              </div>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs min-[400px]:text-sm sm:text-base font-black tracking-wider text-white uppercase font-sans">
-                  METAFORGE
-                </span>
-                <span className="hidden 2xl:inline px-1.5 py-px rounded text-[9px] sm:text-[10px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                  PRO
-                </span>
-              </div>
-              <p className="text-[10px] text-neutral-400 font-medium italic hidden lg:block leading-none mt-0.5">
-                Inspect. Clean. Enrich. Publish.
-              </p>
-            </div>
+            <BrandMark className="w-7 h-7 min-[400px]:w-8 min-[400px]:h-8 sm:w-9 sm:h-9" />
+            <span className="text-xs min-[400px]:text-sm sm:text-[15px] font-semibold tracking-[0.14em] text-white uppercase">
+              METAFORGE
+            </span>
           </Link>
 
           {/* Navigation Links for Studio, Docs, Guides */}
-          <nav className="hidden md:flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-3 bg-neutral-900/70 p-1 rounded-xl border border-neutral-800/80">
+          <nav aria-label="Site" className="hidden md:flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-3 bg-neutral-900/70 p-1 rounded-xl border border-neutral-800/80">
             <Link
               href="/"
               prefetch={false}
@@ -77,7 +63,7 @@ export default function Header() {
               }`}
               title="Metadata Studio Workstation"
             >
-              <Layers className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <Layers className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               <span className="hidden sm:inline">Studio</span>
             </Link>
 
@@ -103,7 +89,7 @@ export default function Header() {
               }`}
               title="Interactive Feature Tutorials"
             >
-              <BookOpen className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+              <BookOpen className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
               <span className="hidden md:inline">Guide</span>
             </Link>
           </nav>
@@ -113,7 +99,7 @@ export default function Header() {
         {isProcessing ? (
           <div className="absolute top-full left-3 right-3 md:static flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-500/40 text-purple-200 text-xs mx-auto min-w-0">
             <div className="w-2 h-2 shrink-0 rounded-full bg-purple-400 animate-ping" />
-            <span role="status" className="truncate max-w-[180px] sm:max-w-none animate-pulse">{processingMessage || 'Processing in-memory...'}</span>
+            <span role="status" className="truncate max-w-[180px] sm:max-w-none">{processingMessage || 'Processing in-memory...'}</span>
             {batchRunning && (
               <button
                 type="button"
@@ -143,7 +129,7 @@ export default function Header() {
                   onClick={batchSanitizeForSocial}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs cursor-pointer active:scale-95"
                 >
-                  <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                  <Shield className="w-3.5 h-3.5 text-neutral-400" />
                   Sanitize All
                 </button>
 
@@ -151,7 +137,7 @@ export default function Header() {
                   onClick={() => exportAllZip()}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs cursor-pointer active:scale-95"
                 >
-                  <Download className="w-3.5 h-3.5 text-blue-400" />
+                  <Download className="w-3.5 h-3.5 text-neutral-400" />
                   Export ZIP ({files.length})
                 </button>
 
@@ -160,7 +146,7 @@ export default function Header() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-700 transition shadow-xs cursor-pointer active:scale-95"
                   title="Export all image metadata records as a unified JSON catalog"
                 >
-                  <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                  <FileCode className="w-3.5 h-3.5 text-neutral-400" />
                   Export JSON ({files.length})
                 </button>
 
@@ -181,7 +167,7 @@ export default function Header() {
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-neutral-900 border border-neutral-800 text-neutral-200 hover:text-white hover:bg-neutral-850 transition touch-target"
                   title="Open batch actions menu"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <Zap className="w-3.5 h-3.5 text-neutral-400" />
                   <span className="hidden sm:inline">Actions</span>
                   <span className="hidden min-[400px]:inline px-1.5 py-px rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
                     {files.length}
@@ -202,7 +188,7 @@ export default function Header() {
               onClick={toggleAI}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer min-h-[36px] sm:min-h-0 ${
                 aiEnabled
-                  ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30'
+                  ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
@@ -236,7 +222,7 @@ export default function Header() {
           <div className="w-full rounded-3xl bg-neutral-900 border border-neutral-800 p-5 flex flex-col gap-4 shadow-2xl pb-safe">
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-400" />
+                <Zap className="w-4 h-4 text-neutral-400" />
                 <h3 className="text-sm font-bold text-white">Batch Quick Actions</h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
                   {files.length} images
@@ -277,7 +263,7 @@ export default function Header() {
                 }}
                 className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-neutral-950 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 flex items-center gap-2 touch-target"
               >
-                <Shield className="w-4 h-4 text-indigo-400" />
+                <Shield className="w-4 h-4 text-neutral-400" />
                 Sanitize All for Social Media Sharing
               </button>
 
@@ -289,7 +275,7 @@ export default function Header() {
                 className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-neutral-950 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 flex items-center justify-between touch-target"
               >
                 <span className="flex items-center gap-2">
-                  <Download className="w-4 h-4 text-blue-400" />
+                  <Download className="w-4 h-4 text-neutral-400" />
                   Download Complete ZIP Package
                 </span>
                 <span className="font-mono text-[11px] text-neutral-400">
@@ -305,7 +291,7 @@ export default function Header() {
                 className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-neutral-950 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 flex items-center justify-between touch-target"
               >
                 <span className="flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-amber-400" />
+                  <FileCode className="w-4 h-4 text-neutral-400" />
                   Export Unified Metadata JSON Catalog
                 </span>
                 <span className="font-mono text-[11px] text-neutral-400">

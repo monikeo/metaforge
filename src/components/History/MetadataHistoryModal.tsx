@@ -51,7 +51,7 @@ export default function MetadataHistoryModal({ fileId, isOpen, onClose }: Metada
           {history.length > 0 ? (
             history.map((record) => {
               let ActorIcon = User;
-              let actorColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+              let actorColor = 'text-purple-400 bg-purple-500/10 border-purple-500/20';
 
               if (record.actor === 'AI') {
                 ActorIcon = Bot;

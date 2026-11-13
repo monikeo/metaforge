@@ -5,7 +5,8 @@ import ModalOverlay from '@/components/ModalOverlay';
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMetaForge } from '@/lib/store';
+import { QUEUE_LIMITS, useMetaForge } from '@/lib/store';
+import { formatBytes } from '@/lib/format';
 import { AppView } from '@/lib/types';
 import { workspaceHref } from '@/lib/navigation';
 import { 
@@ -28,6 +29,8 @@ export default function AppSidebar() {
   const { currentView, files, setCurrentView, setIsCommandPaletteOpen } = useMetaForge('currentView', 'files', 'setCurrentView', 'setIsCommandPaletteOpen');
 
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+  const queueBytes = files.reduce((total, file) => total + file.originalBlob.size, 0);
+  const queueUsed = Math.min(100, Math.round((queueBytes / QUEUE_LIMITS.bytes) * 100));
   const [isTabletCollapsed, setIsTabletCollapsed] = useState(true);
 
   const navItems: { id: AppView; label: string; icon: any; count?: number }[] = [
@@ -79,8 +82,8 @@ export default function AppSidebar() {
           </kbd>
         </button>
 
-        {/* Primary SaaS Navigation */}
-        <div className="flex flex-col gap-1">
+        {/* Primary navigation */}
+        <nav aria-label="Workspaces" className="flex flex-col gap-1">
           <span className={`text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1 ${
             isTabletCollapsed ? 'hidden 2xl:block' : 'block'
           }`}>
@@ -123,10 +126,10 @@ export default function AppSidebar() {
               </Link>
             );
           })}
-        </div>
+        </nav>
 
         {/* Documentation & Help Section */}
-        <div className="flex flex-col gap-1 mt-6">
+        <nav aria-label="Resources" className="flex flex-col gap-1 mt-6">
           <span className={`text-[10px] font-bold uppercase tracking-wider text-neutral-500 px-2 py-1 ${
             isTabletCollapsed ? 'hidden 2xl:block' : 'block'
           }`}>
@@ -161,26 +164,33 @@ export default function AppSidebar() {
             } ${isTabletCollapsed ? '2xl:justify-between justify-center' : 'justify-between'}`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <BookOpen className="w-4 h-4 text-pink-400 shrink-0" />
+              <BookOpen className="w-4 h-4 text-neutral-400 shrink-0" />
               <span className={`truncate ${isTabletCollapsed ? 'hidden 2xl:inline' : 'inline'}`}>
                 Feature Tutorials
               </span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 text-neutral-600 ${isTabletCollapsed ? 'hidden 2xl:inline' : 'inline'}`} />
           </Link>
-        </div>
+        </nav>
 
         {/* Sidebar Footer Info */}
         <div className={`mt-auto pt-4 border-t border-neutral-900 flex flex-col gap-1.5 text-[11px] text-neutral-500 font-mono ${
           isTabletCollapsed ? 'hidden 2xl:flex' : 'flex'
         }`}>
           <div className="flex items-center justify-between">
-            <span>Client Engine:</span>
-            <span className="text-emerald-400 font-semibold">Browser Active</span>
+            <span>Queue</span>
+            <span className="text-neutral-300">{files.length} / {QUEUE_LIMITS.files}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span>Uploads:</span>
-            <span className="text-neutral-300">0 KB (Local)</span>
+            <span>Memory</span>
+            <span className="text-neutral-300">{formatBytes(queueBytes)} / {formatBytes(QUEUE_LIMITS.bytes).replace(/\.0+ /, ' ')}</span>
+          </div>
+          <div role="progressbar" aria-label="Queue memory used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={queueUsed} className="h-1 rounded-full bg-neutral-900 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${queueUsed >= 85 ? 'bg-amber-500' : 'bg-purple-500'}`} style={{ width: `${Math.max(queueUsed, files.length ? 2 : 0)}%` }} />
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Uploads</span>
+            <span className="text-emerald-400 font-semibold">None, all local</span>
           </div>
         </div>
       </aside>
@@ -286,7 +296,7 @@ export default function AppSidebar() {
                 onClick={() => setIsMobileMoreOpen(false)}
                 className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-left flex flex-col gap-1.5 touch-target"
               >
-                <Cpu className="w-5 h-5 text-indigo-400" />
+                <Cpu className="w-5 h-5 text-neutral-400" />
                 <span className="font-semibold text-white">Batch Queue</span>
                 <span className="text-[10px] text-neutral-400">Processing jobs monitor</span>
               </Link>
@@ -308,7 +318,7 @@ export default function AppSidebar() {
                 onClick={() => setIsMobileMoreOpen(false)}
                 className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-left flex flex-col gap-1.5 touch-target"
               >
-                <Info className="w-5 h-5 text-blue-400" />
+                <Info className="w-5 h-5 text-neutral-400" />
                 <span className="font-semibold text-white">About &amp; Docs</span>
                 <span className="text-[10px] text-neutral-400">Engine specifications</span>
               </Link>
@@ -318,7 +328,7 @@ export default function AppSidebar() {
                 onClick={() => setIsMobileMoreOpen(false)}
                 className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-left flex flex-col gap-1.5 touch-target"
               >
-                <BookOpen className="w-5 h-5 text-pink-400" />
+                <BookOpen className="w-5 h-5 text-neutral-400" />
                 <span className="font-semibold text-white">Feature Guides</span>
                 <span className="text-[10px] text-neutral-400">Step-by-step tutorials</span>
               </Link>

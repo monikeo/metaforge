@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import ClientRuntime from '@/components/ClientRuntime';
+import SkipLink from '@/components/SkipLink';
 import Toasts from '@/components/Toasts';
 import { Suspense } from 'react';
 import WorkspaceNavigation from '@/components/WorkspaceNavigation';
@@ -40,6 +41,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col bg-neutral-950 text-neutral-100 selection:bg-purple-500/30 selection:text-purple-200">
+        <SkipLink />
         <ClientRuntime />
         <Suspense fallback={null}><WorkspaceNavigation /></Suspense>
         <Toasts />

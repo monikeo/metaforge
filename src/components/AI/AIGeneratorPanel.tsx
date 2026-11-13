@@ -104,7 +104,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
     <div className="flex flex-col gap-4">
       {(!aiEnabled || !geminiApiKey) && <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-neutral-400 leading-relaxed">
         {aiEnabled ? 'Add a Gemini key to generate SEO, or edit the fields below manually.' : 'Manual SEO editing is available offline. Enable AI to generate suggestions from the image.'}
-        <button onClick={() => setIsAiSettingsOpen(true)} className="mt-2 flex items-center gap-1.5 text-purple-300"><Key className="w-3.5 h-3.5" />AI settings</button>
+        <button onClick={() => setIsAiSettingsOpen(true)} className="mt-2 -ml-2 px-2 min-h-8 rounded-lg flex items-center gap-1.5 text-purple-300 hover:bg-neutral-900"><Key className="w-3.5 h-3.5" />AI settings</button>
       </div>}
       {/* Action Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -125,7 +125,7 @@ export default function AIGeneratorPanel({ fileId }: AIGeneratorPanelProps) {
         <button
           onClick={handleAnalyze}
           disabled={isLoading || !aiEnabled || !geminiApiKey || isProcessing}
-          className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 disabled:opacity-50 transition flex items-center gap-1.5"
+          className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-md disabled:opacity-50 transition flex items-center gap-1.5"
         >
           {isLoading ? (
             <>

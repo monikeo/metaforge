@@ -39,7 +39,7 @@ export default function SitemapExport() {
         disabled={files.length === 0}
         className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-200 border border-neutral-700 transition flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0"
       >
-        <FileCode className="w-3.5 h-3.5 text-blue-400" />
+        <FileCode className="w-3.5 h-3.5 text-neutral-400" />
         Generate Google Image Sitemap XML ({files.length} images)
       </button>
 
@@ -51,7 +51,7 @@ export default function SitemapExport() {
 
             <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
               <div className="flex items-center gap-2">
-                <FileCode className="w-5 h-5 text-blue-400" />
+                <FileCode className="w-5 h-5 text-neutral-400" />
                 <div>
                   <h3 className="text-sm font-bold text-white">Google Image Sitemap (XML)</h3>
                   <p className="text-xs text-neutral-400">Standard XML format for Google Search Console submission</p>
@@ -76,7 +76,7 @@ export default function SitemapExport() {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="https://example.com"
-                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500 font-mono min-h-[40px] sm:min-h-0"
+                className="px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500 font-mono min-h-[40px] sm:min-h-0"
               />
             </div>
 
@@ -106,7 +106,7 @@ export default function SitemapExport() {
               <button
                 disabled={!xmlContent}
                 onClick={handleDownload}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 shadow-md shadow-blue-600/20 touch-target sm:min-h-0 sm:min-w-0"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition flex items-center gap-1.5 shadow-md touch-target sm:min-h-0 sm:min-w-0"
               >
                 <Download className="w-3.5 h-3.5" />
                 Download sitemap.xml

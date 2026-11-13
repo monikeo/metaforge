@@ -26,14 +26,14 @@ import { useMetaForge } from '@/lib/store';
 import { useLayoutMode } from '@/lib/use-layout-mode';
 import { filesFromDataTransfer, importImageFiles, isImageFile, namePastedImages } from '@/lib/import-files';
 import { firstText } from '@/lib/metadata-writer';
-import { 
-  FileText, 
-  ShieldAlert, 
-  Sparkles, 
-  Binary, 
-  Cpu, 
-  Flame, 
-  CheckCircle2, 
+import BrandMark from '@/components/BrandMark';
+import {
+  FileText,
+  ShieldAlert,
+  Sparkles,
+  Binary,
+  Cpu,
+  CheckCircle2,
   Lock,
   Layers,
   ArrowLeft,
@@ -43,14 +43,15 @@ import {
   X,
   Globe,
   Tag,
-  Download,
-  MapPinOff,
+  Images,
   ChevronRight
 } from 'lucide-react';
 
+const VIEW_TITLES: Record<string, string> = { studio: 'Studio', dashboard: 'Dashboard', compare: 'Compare', presets: 'Presets', jobs: 'Batch Queue' };
+
 export default function MetaForgeStudio() {
-  const { files, currentView, activeFileId, setActiveFile, activeTab, setActiveTab, stripGps, exportSingle, isProcessing } =
-    useMetaForge('files', 'currentView', 'activeFileId', 'setActiveFile', 'activeTab', 'setActiveTab', 'stripGps', 'exportSingle', 'isProcessing');
+  const { files, currentView, activeFileId, setActiveFile, activeTab, setActiveTab } =
+    useMetaForge('files', 'currentView', 'activeFileId', 'setActiveFile', 'activeTab', 'setActiveTab');
   const layout = useLayoutMode();
 
   // Mobile dedicated section switcher (< 768px)
@@ -63,6 +64,11 @@ export default function MetaForgeStudio() {
 
   const activeIndex = Math.max(0, files.findIndex((f) => f.id === activeFileId));
   const activeFile = files[activeIndex];
+
+  // Browser tabs and history entries should say which workspace they show.
+  useEffect(() => {
+    document.title = `${VIEW_TITLES[currentView] ?? 'Studio'} — MetaForge`;
+  }, [currentView]);
 
   // Paste screenshots or copied images anywhere in the studio (outside text fields and dialogs).
   useEffect(() => {
@@ -180,7 +186,8 @@ export default function MetaForgeStudio() {
       <div className="flex-1 min-h-0 flex flex-row min-w-0">
         <AppSidebar />
 
-        <div className="flex-1 min-h-0 flex flex-col min-w-0">
+        {/* The one main landmark. The skip link in the root layout targets it. */}
+        <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 flex flex-col min-w-0 outline-none">
           {currentView === 'dashboard' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ErrorBoundary fallbackTitle="Metadata Analytics Dashboard">
@@ -213,16 +220,13 @@ export default function MetaForgeStudio() {
           {currentView === 'studio' && (
             files.length === 0 ? (
               /* Empty / Hero State (Fully responsive for mobile, tablet, and wide desktop) */
-              <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 md:p-10 max-w-4xl mx-auto w-full overflow-y-auto custom-scrollbar">
-                <div className="flex flex-col items-center text-center gap-4 mb-6 sm:mb-8 animate-fade-in">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-2xl shadow-purple-600/30">
-                    <div className="w-full h-full bg-neutral-950 rounded-[22px] flex items-center justify-center">
-                      <Flame className="w-8 h-8 sm:w-9 sm:h-9 text-amber-400" />
-                    </div>
-                  </div>
+              <div className="flex-1 flex flex-col items-center p-4 sm:p-6 md:p-10 max-w-4xl mx-auto w-full overflow-y-auto custom-scrollbar">
+                {/* mt-auto / mb-auto centre the content when there is room. justify-center would clip the top when it overflows. */}
+                <div className="flex flex-col items-center text-center gap-4 mt-auto mb-6 sm:mb-8 animate-fade-in">
+                  <BrandMark className="w-14 h-14 sm:w-16 sm:h-16" />
 
                   <div className="flex flex-col gap-1.5">
-                    <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white uppercase">
+                    <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-white uppercase">
                       METAFORGE
                     </h1>
                     <p className="text-sm sm:text-lg font-medium text-neutral-300">
@@ -243,7 +247,7 @@ export default function MetaForgeStudio() {
                       <span>Zero Server Uploads</span>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] sm:text-xs text-neutral-300">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <Sparkles className="w-3.5 h-3.5 text-neutral-400" />
                       <span>Gemini Vision BYOK</span>
                     </div>
                   </div>
@@ -254,7 +258,7 @@ export default function MetaForgeStudio() {
                 </div>
 
                 {/* Feature Highlights Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 mb-auto w-full">
                   <div className="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/80 flex flex-col gap-2">
                     <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
                       <ShieldAlert className="w-4 h-4" />
@@ -276,7 +280,7 @@ export default function MetaForgeStudio() {
                   </div>
 
                   <div className="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/80 flex flex-col gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <h3 className="text-xs font-bold text-white uppercase tracking-wider">Visual SEO &amp; Sitemaps</h3>
@@ -285,11 +289,12 @@ export default function MetaForgeStudio() {
                     </p>
                   </div>
                 </div>
-              </main>
+              </div>
             ) : (
               /* WORKSTATION LAYOUT: 3 PURPOSE-BUILT RESPONSIVE EXPERIENCES */
               <div className="flex-1 min-h-0 flex flex-col min-w-0">
-                
+                <h1 className="sr-only">Metadata Studio</h1>
+
                 {/* =========================================================================
                     1. NATIVE MOBILE EXPERIENCE (< 768px / md)
                     Purpose-built native phone view with dedicated tabs & swipe gestures
@@ -306,6 +311,7 @@ export default function MetaForgeStudio() {
                         }}
                         className="p-1.5 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white touch-press"
                         title="Previous photo"
+                        aria-label="Previous image"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
                       </button>
@@ -333,82 +339,49 @@ export default function MetaForgeStudio() {
                         }}
                         className="p-1.5 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white touch-press"
                         title="Next photo"
+                        aria-label="Next image"
                       >
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Native Mobile Segmented Control Bar */}
-                  <div className="flex items-center gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl overflow-x-auto scrollbar-none shadow-md">
-                    <button
-                      onClick={() => setMobileSection('canvas')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap touch-press ${
-                        mobileSection === 'canvas'
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                          : 'text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Canvas</span>
-                    </button>
-
-                    <button
-                      onClick={() => setMobileSection('tags')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap touch-press ${
-                        mobileSection === 'tags'
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                          : 'text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <Tag className="w-3.5 h-3.5" />
-                      <span>Tags</span>
-                    </button>
-
-                    <button
-                      onClick={() => setMobileSection('privacy')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap touch-press ${
-                        mobileSection === 'privacy'
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                          : 'text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      <span>Privacy</span>
-                      {activeFile?.privacyReport.hasGps && (
-                        <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => setMobileSection('seo')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap touch-press ${
-                        mobileSection === 'seo'
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                          : 'text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>SEO</span>
-                    </button>
-
-                    <button
-                      onClick={() => setMobileSection('queue')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap touch-press ${
-                        mobileSection === 'queue'
-                          ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                          : 'text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <span>Queue</span>
-                      <span className="px-1.5 py-px rounded-full text-[10px] bg-neutral-800 text-neutral-300 font-mono">
-                        {files.length}
-                      </span>
-                    </button>
+                  {/* Section switcher: five equal columns, so every section stays reachable without sideways scrolling. */}
+                  <div role="group" aria-label="Studio sections" className="grid grid-cols-5 gap-1 p-1 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-md">
+                    {([
+                      ['canvas', 'Canvas', Layers],
+                      ['tags', 'Tags', Tag],
+                      ['privacy', 'Privacy', Shield],
+                      ['seo', 'SEO', Sparkles],
+                      ['queue', 'Queue', Images]
+                    ] as const).map(([id, label, Icon]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={mobileSection === id}
+                        onClick={() => setMobileSection(id)}
+                        className={`relative min-w-0 min-h-12 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl text-[11px] font-bold transition touch-press ${
+                          mobileSection === id
+                            ? 'bg-neutral-800 text-white'
+                            : 'text-neutral-400 hover:text-neutral-200'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${mobileSection === id ? 'text-purple-400' : ''}`} aria-hidden="true" />
+                        <span>{label}</span>
+                        {id === 'privacy' && activeFile?.privacyReport.hasGps && (
+                          <span aria-hidden="true" className="absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-rose-400 ring-2 ring-neutral-900" />
+                        )}
+                        {id === 'queue' && (
+                          <span className={`absolute top-0.5 right-1 px-1 rounded-full text-[10px] leading-4 font-mono ${mobileSection === id ? 'bg-white/20 text-white' : 'bg-neutral-800 text-neutral-200'}`}>
+                            {files.length}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Mobile Body Content Area */}
-                  <div className="flex-1 flex flex-col gap-3 pb-16">
+                  <div className="flex-1 flex flex-col gap-3">
                     {mobileSection === 'canvas' && activeFile && (
                       <div className="flex flex-col gap-3 animate-fade-in">
                         <ErrorBoundary fallbackTitle="Mobile Canvas Preview">
@@ -499,39 +472,6 @@ export default function MetaForgeStudio() {
                     )}
                   </div>
 
-                  {/* Mobile Sticky Quick Action Dock (Floating above safe area) */}
-                  <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-30 flex items-center justify-between gap-2 p-2 bg-neutral-900/95 backdrop-blur-xl border border-neutral-800 rounded-2xl shadow-2xl">
-                    {mobileSection === 'privacy' ? (
-                      <>
-                        <button
-                          onClick={() => stripGps(activeFile.id)}
-                          disabled={isProcessing || !activeFile.privacyReport.hasGps}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 touch-press shadow-md"
-                        >
-                          <MapPinOff className="w-3.5 h-3.5" />
-                          <span>{activeFile.privacyReport.hasGps ? 'Strip GPS From This Image' : 'No GPS In This Image'}</span>
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => exportSingle(activeFile.id)}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 touch-press border border-neutral-700"
-                        >
-                          <Download className="w-3.5 h-3.5 text-blue-400" />
-                          <span>Download Image</span>
-                        </button>
-
-                        <button
-                          onClick={() => setMobileSection('seo')}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 touch-press shadow-md shadow-purple-600/30"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>AI SEO Enrich</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
                 </div>
                 )}
 
@@ -559,55 +499,65 @@ export default function MetaForgeStudio() {
                     {/* Tablet Subtabs */}
                     <div className="shrink-0 sticky top-0 z-20 flex items-center gap-1 p-1 bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-xl text-xs font-semibold overflow-x-auto shadow-md">
                       <button
+                        type="button"
+                        aria-pressed={tabletInspectorTab === 'metadata'}
                         onClick={() => setTabletInspectorTab('metadata')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
                           tabletInspectorTab === 'metadata' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <FileText className="w-3.5 h-3.5 text-blue-400" />
+                        <FileText className="w-3.5 h-3.5 text-neutral-400" />
                         <span>Metadata</span>
                       </button>
 
                       <button
+                        type="button"
+                        aria-pressed={tabletInspectorTab === 'privacy'}
                         onClick={() => setTabletInspectorTab('privacy')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
                           tabletInspectorTab === 'privacy' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Shield className="w-3.5 h-3.5 text-rose-400" />
+                        <Shield className="w-3.5 h-3.5 text-neutral-400" />
                         <span>Privacy</span>
                         {activeFile?.privacyReport.hasGps && (
-                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
                         )}
                       </button>
 
                       <button
+                        type="button"
+                        aria-pressed={tabletInspectorTab === 'seo'}
                         onClick={() => setTabletInspectorTab('seo')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
                           tabletInspectorTab === 'seo' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        <Sparkles className="w-3.5 h-3.5 text-neutral-400" />
                         <span>AI / SEO</span>
                       </button>
 
                       <button
+                        type="button"
+                        aria-pressed={tabletInspectorTab === 'workflow'}
                         onClick={() => setTabletInspectorTab('workflow')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
                           tabletInspectorTab === 'workflow' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                        <Cpu className="w-3.5 h-3.5 text-neutral-400" />
                         <span>AI Graph</span>
                       </button>
 
                       <button
+                        type="button"
+                        aria-pressed={tabletInspectorTab === 'hex'}
                         onClick={() => setTabletInspectorTab('hex')}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition whitespace-nowrap touch-press ${
                           tabletInspectorTab === 'hex' ? 'bg-neutral-800 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Binary className="w-3.5 h-3.5 text-amber-400" />
+                        <Binary className="w-3.5 h-3.5 text-neutral-400" />
                         <span>Hex</span>
                       </button>
                     </div>
@@ -681,7 +631,7 @@ export default function MetaForgeStudio() {
                       </span>
                       {activeFile?.privacyReport.hasGps && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
                           GPS Detected
                         </span>
                       )}
@@ -713,7 +663,7 @@ export default function MetaForgeStudio() {
 
                       <button
                         onClick={() => setShowKeyboardHelp(true)}
-                        className="hover:text-white flex items-center gap-1 font-mono text-[11px] text-neutral-400 cursor-pointer touch-press"
+                        className="hover:text-white hover:bg-neutral-800 flex items-center gap-1 min-h-8 px-2 rounded-lg font-mono text-[11px] text-neutral-400 cursor-pointer touch-press"
                       >
                         <HelpCircle className="w-3.5 h-3.5 text-purple-400" />
                         <span>Shortcuts [?]</span>
@@ -725,12 +675,12 @@ export default function MetaForgeStudio() {
                   <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
                     
                     {/* COLUMN 1: File Queue & Ingestion (col-span-3, 25%) */}
-                    <aside className="col-span-3 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                    <section aria-label="Image queue" className="col-span-3 min-w-0 flex flex-col gap-3 min-h-0">
                       <Dropzone />
-                      <div className="p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
-                        <ImageGallery />
+                      <div className="flex-1 min-h-0 p-3.5 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col gap-3">
+                        <ImageGallery fill />
                       </div>
-                    </aside>
+                    </section>
 
                     {/* COLUMN 2: Interactive Canvas & Deep Tag Inspector (col-span-5, 41.6%) */}
                     <section className="col-span-5 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
@@ -744,6 +694,8 @@ export default function MetaForgeStudio() {
                           <div className="flex flex-col gap-2.5">
                             <div className="shrink-0 sticky top-0 z-10 flex items-center gap-1 p-1 overflow-x-auto rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
                               <button
+                                type="button"
+                                aria-pressed={activeTab === 'inspector'}
                                 onClick={() => setActiveTab('inspector')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer touch-press ${
                                   activeTab === 'inspector'
@@ -751,11 +703,13 @@ export default function MetaForgeStudio() {
                                     : 'text-neutral-400 hover:text-neutral-200'
                                 }`}
                               >
-                                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                                <FileText className="w-3.5 h-3.5 text-neutral-400" />
                                 Metadata Explorer
                               </button>
 
                               <button
+                                type="button"
+                                aria-pressed={activeTab === 'workflow'}
                                 onClick={() => setActiveTab('workflow')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer touch-press ${
                                   activeTab === 'workflow'
@@ -763,7 +717,7 @@ export default function MetaForgeStudio() {
                                     : 'text-neutral-400 hover:text-neutral-200'
                                 }`}
                               >
-                                <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                                <Cpu className="w-3.5 h-3.5 text-neutral-400" />
                                 AI Workflow
                                 {activeFile.aiWorkflow.detected && (
                                   <span className="w-2 h-2 rounded-full bg-purple-500" />
@@ -771,6 +725,8 @@ export default function MetaForgeStudio() {
                               </button>
 
                               <button
+                                type="button"
+                                aria-pressed={activeTab === 'hex'}
                                 onClick={() => setActiveTab('hex')}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer touch-press ${
                                   activeTab === 'hex'
@@ -778,7 +734,7 @@ export default function MetaForgeStudio() {
                                     : 'text-neutral-400 hover:text-neutral-200'
                                 }`}
                               >
-                                <Binary className="w-3.5 h-3.5 text-amber-400" />
+                                <Binary className="w-3.5 h-3.5 text-neutral-400" />
                                 Raw Hex
                               </button>
                             </div>
@@ -813,47 +769,53 @@ export default function MetaForgeStudio() {
                     </section>
 
                     {/* COLUMN 3: Intelligence & Publishing Studio (col-span-4, 33.3%) */}
-                    <aside className="col-span-4 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                    <section aria-label="Intelligence tools" className="col-span-4 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                       {activeFile && (
                         <>
                           {/* Segmented Switcher for Studio Tools */}
                           <div className="shrink-0 sticky top-0 z-10 flex items-center gap-1 p-1 overflow-x-auto rounded-xl bg-neutral-900/95 backdrop-blur-md border border-neutral-800 shadow-md">
                             <button
+                              type="button"
+                              aria-pressed={desktopStudioTab === 'seo'}
                               onClick={() => setDesktopStudioTab('seo')}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition touch-press ${
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-press ${
                                 desktopStudioTab === 'seo'
-                                  ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30'
+                                  ? 'bg-neutral-800 text-white'
                                   : 'text-neutral-400 hover:text-neutral-200'
                               }`}
                             >
-                              <Sparkles className="w-3.5 h-3.5" />
+                              <Sparkles className="w-3.5 h-3.5 hidden 2xl:block" aria-hidden="true" />
                               <span>AI &amp; SEO</span>
                             </button>
 
                             <button
+                              type="button"
+                              aria-pressed={desktopStudioTab === 'privacy'}
                               onClick={() => setDesktopStudioTab('privacy')}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition touch-press ${
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-press ${
                                 desktopStudioTab === 'privacy'
-                                  ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30'
+                                  ? 'bg-neutral-800 text-white'
                                   : 'text-neutral-400 hover:text-neutral-200'
                               }`}
                             >
-                              <ShieldAlert className="w-3.5 h-3.5" />
+                              <ShieldAlert className="w-3.5 h-3.5 hidden 2xl:block" aria-hidden="true" />
                               <span>Privacy Shield</span>
                               {activeFile.privacyReport.hasGps && (
-                                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                                <span className="w-2 h-2 rounded-full bg-rose-400" />
                               )}
                             </button>
 
                             <button
+                              type="button"
+                              aria-pressed={desktopStudioTab === 'sitemap'}
                               onClick={() => setDesktopStudioTab('sitemap')}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition touch-press ${
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold whitespace-nowrap transition touch-press ${
                                 desktopStudioTab === 'sitemap'
-                                  ? 'bg-purple-600 text-white shadow-sm shadow-purple-600/30'
+                                  ? 'bg-neutral-800 text-white'
                                   : 'text-neutral-400 hover:text-neutral-200'
                               }`}
                             >
-                              <Globe className="w-3.5 h-3.5" />
+                              <Globe className="w-3.5 h-3.5 hidden 2xl:block" aria-hidden="true" />
                               <span>Sitemaps</span>
                             </button>
                           </div>
@@ -884,14 +846,14 @@ export default function MetaForgeStudio() {
                           </div>
                         </>
                       )}
-                    </aside>
+                    </section>
                   </div>
                 </div>
                 )}
               </div>
             )
           )}
-        </div>
+        </main>
       </div>
     </div>
   );

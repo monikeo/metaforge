@@ -26,8 +26,8 @@ export default function Toasts() {
           iconColor = 'text-amber-400';
         } else if (toast.type === 'info') {
           Icon = Info;
-          colorClasses = 'border-blue-500/30 bg-blue-950/90 text-blue-200';
-          iconColor = 'text-blue-400';
+          colorClasses = 'border-purple-500/30 bg-purple-950/90 text-purple-200';
+          iconColor = 'text-purple-400';
         }
 
         return (
@@ -46,7 +46,7 @@ export default function Toasts() {
             <button
               aria-label="Dismiss notification"
               onClick={() => removeToast(toast.id)}
-              className="pointer-events-auto p-1 rounded-lg opacity-60 hover:opacity-100 transition -mr-1 -mt-1"
+              className="pointer-events-auto p-1.5 min-w-6 min-h-6 flex items-center justify-center rounded-lg opacity-70 hover:opacity-100 transition -mr-1.5 -mt-1.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>

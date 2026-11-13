@@ -13,22 +13,32 @@ import {
   ShieldAlert, 
   Filter, 
   CheckSquare, 
-  Square, 
-  Layers 
+  Square,
+  Layers,
+  Download
 } from 'lucide-react';
 import BatchActionsModal from './Batch/BatchActionsModal';
+import ConfirmDialog from './ConfirmDialog';
 
 const FORMAT_OPTIONS: [string, string][] = [['image/jpeg', 'JPEG'], ['image/png', 'PNG'], ['image/webp', 'WebP'], ['image/avif', 'AVIF'], ['image/heic', 'HEIC'], ['image/tiff', 'TIFF'], ['image/gif', 'GIF']];
 
-export default function ImageGallery() {
+/** `fill` lets the list take the remaining height of a flex column instead of using a viewport-based cap. */
+export default function ImageGallery({ fill = false }: { fill?: boolean }) {
   const {
     files, activeFileId, setActiveFile, removeFile, clearFiles, searchQuery, setSearchQuery,
-    selectedFileIds, toggleSelectFile, selectAllFiles, clearSelection, filterOptions, setFilterOptions
+    selectedFileIds, toggleSelectFile, selectAllFiles, clearSelection, filterOptions, setFilterOptions,
+    exportAllZip, exportSingle, isProcessing
   } = useMetaForge('files', 'activeFileId', 'setActiveFile', 'removeFile', 'clearFiles', 'searchQuery', 'setSearchQuery',
-    'selectedFileIds', 'toggleSelectFile', 'selectAllFiles', 'clearSelection', 'filterOptions', 'setFilterOptions');
+    'selectedFileIds', 'toggleSelectFile', 'selectAllFiles', 'clearSelection', 'filterOptions', 'setFilterOptions',
+    'exportAllZip', 'exportSingle', 'isProcessing');
 
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  // Edits live only in this tab, so discarding modified images asks first. Unmodified images are one click.
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const modifiedCount = files.filter((file) => file.isDirty).length;
+  const pendingRemoval = files.find((file) => file.id === confirmRemoveId);
   const query = searchQuery.trim().toLowerCase();
   const activeFilterCount = Object.values(filterOptions).filter((value) => value !== 'ALL').length;
 
@@ -59,10 +69,10 @@ export default function ImageGallery() {
   const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`flex flex-col gap-3 ${fill ? 'flex-1 min-h-0' : ''}`}>
       {/* Search & Bulk Toolbar */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300 whitespace-nowrap">
           <ImageIcon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
           <span>Queue ({files.length})</span>
           {selectedFileIds.length > 0 && (
@@ -76,7 +86,7 @@ export default function ImageGallery() {
           {files.length > 0 && (
             <button
               onClick={() => (isAllSelected ? clearSelection() : selectAllFiles())}
-              className="text-[11px] text-neutral-400 hover:text-white px-2 py-1 rounded-lg transition flex items-center gap-1 min-h-[36px] sm:min-h-0"
+              className="text-[11px] text-neutral-400 hover:text-white px-2 py-1 rounded-lg transition flex items-center gap-1 whitespace-nowrap min-h-[36px] sm:min-h-8"
               title="Toggle Select All"
             >
               {isAllSelected ? <CheckSquare className="w-3.5 h-3.5 text-purple-400" /> : <Square className="w-3.5 h-3.5" />}
@@ -98,8 +108,9 @@ export default function ImageGallery() {
 
           {files.length > 0 && (
             <button
-              onClick={clearFiles}
-              className="text-[11px] text-neutral-500 hover:text-rose-400 transition px-2 py-1 rounded min-h-[36px] sm:min-h-0 flex items-center"
+              onClick={() => (modifiedCount ? setConfirmClear(true) : clearFiles())}
+              className="text-[11px] text-neutral-500 hover:text-rose-400 transition px-2 py-1 rounded min-h-[36px] sm:min-h-8 flex items-center"
+              title="Remove every image from the queue"
             >
               Clear
             </button>
@@ -201,7 +212,7 @@ export default function ImageGallery() {
       )}
 
       {/* Thumbnails Scroll List */}
-      <div className="flex flex-col gap-2 max-h-[50dvh] sm:max-h-[max(12rem,calc(100dvh-420px))] overflow-y-auto pr-1">
+      <div className={`flex flex-col gap-2 overflow-y-auto pr-1 custom-scrollbar ${fill ? 'flex-1 min-h-32' : 'max-h-[50dvh] sm:max-h-[max(12rem,calc(100dvh-420px))]'}`}>
         {!filteredFiles.length && (
           <div className="py-6 flex flex-col items-center gap-2 text-center text-xs text-neutral-400">
             <p>No images match these filters.</p>
@@ -231,7 +242,7 @@ export default function ImageGallery() {
               onClick={() => setActiveFile(file.id)}
               className={`group relative flex items-center gap-2.5 p-2 rounded-xl border transition cursor-pointer select-none ${
                 isActive
-                  ? 'bg-neutral-800/90 border-purple-500 shadow-md shadow-purple-950/20'
+                  ? 'bg-neutral-800/90 border-purple-500 shadow-md'
                   : 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
               }`}
             >
@@ -263,24 +274,18 @@ export default function ImageGallery() {
                   className="w-full h-full object-cover"
                 />
                 {file.isDirty && (
-                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-neutral-950" title="Modified in memory" />
+                  <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-neutral-950" title="Modified in memory" />
                 )}
               </div>
 
               {/* File Info & Badges */}
               <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                <span className={`text-xs font-semibold truncate ${isActive ? 'text-white' : 'text-neutral-300'}`}>
+                <span className={`text-xs font-semibold truncate pr-6 ${isActive ? 'text-white' : 'text-neutral-300'}`}>
                   {file.name}
                 </span>
 
-                <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 font-mono">
-                  <span>{formatBytes(file.size)}</span>
-                  {file.width && file.height && (
-                    <>
-                      <span>•</span>
-                      <span>{file.width}×{file.height}</span>
-                    </>
-                  )}
+                <div className="truncate text-[11px] text-neutral-400 font-mono">
+                  {formatBytes(file.size)}{file.width && file.height ? ` · ${file.width}×${file.height}` : ''}
                 </div>
 
                 {/* Badges */}
@@ -313,9 +318,9 @@ export default function ImageGallery() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeFile(file.id);
+                  if (file.isDirty) setConfirmRemoveId(file.id); else removeFile(file.id);
                 }}
-                className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 p-2 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition min-w-[36px] min-h-[36px] flex items-center justify-center"
+                className="absolute top-1 right-1 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition min-w-8 min-h-8 flex items-center justify-center"
                 title="Remove file"
                 aria-label={`Remove ${file.name}`}
               >
@@ -331,6 +336,46 @@ export default function ImageGallery() {
         isOpen={isBatchModalOpen}
         onClose={() => setIsBatchModalOpen(false)}
       />
+
+      {confirmClear && (
+        <ConfirmDialog
+          title={`Clear ${files.length} image${files.length === 1 ? '' : 's'}?`}
+          description={`${modifiedCount} of them ${modifiedCount === 1 ? 'has' : 'have'} edits that exist only in this browser tab. Your original files on disk are not affected, but those edits cannot be recovered after clearing.`}
+          confirmLabel="Clear queue"
+          onCancel={() => setConfirmClear(false)}
+          onConfirm={() => { setConfirmClear(false); clearFiles(); }}
+          alternative={
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => { void exportAllZip(); }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-100 border border-neutral-700 touch-target sm:min-h-0 sm:min-w-0"
+            >
+              <Download className="w-3.5 h-3.5 text-neutral-400" aria-hidden="true" />
+              Download ZIP first
+            </button>
+          }
+        />
+      )}
+      {pendingRemoval && (
+        <ConfirmDialog
+          title="Remove this image?"
+          description={`“${pendingRemoval.name}” has edits that exist only in this browser tab. Removing it discards them. Your original file on disk is not affected.`}
+          confirmLabel="Remove image"
+          onCancel={() => setConfirmRemoveId(null)}
+          onConfirm={() => { removeFile(pendingRemoval.id); setConfirmRemoveId(null); }}
+          alternative={
+            <button
+              type="button"
+              onClick={() => exportSingle(pendingRemoval.id)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-100 border border-neutral-700 touch-target sm:min-h-0 sm:min-w-0"
+            >
+              <Download className="w-3.5 h-3.5 text-neutral-400" aria-hidden="true" />
+              Download it first
+            </button>
+          }
+        />
+      )}
     </div>
   );
 }
