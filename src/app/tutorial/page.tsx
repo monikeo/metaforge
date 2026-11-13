@@ -4,20 +4,19 @@ import { copyText } from '@/lib/clipboard';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Flame, 
-  ArrowLeft, 
-  Sparkles, 
-  FileText, 
-  ShieldAlert, 
-  Cpu, 
-  Globe, 
-  FileCode, 
-  Download, 
-  ZoomIn, 
-  Keyboard, 
-  Check, 
-  Lock, 
+import {
+  ArrowLeft,
+  Sparkles,
+  FileText,
+  ShieldAlert,
+  Cpu,
+  Globe,
+  FileCode,
+  Download,
+  ZoomIn,
+  Keyboard,
+  Check,
+  Lock,
   HelpCircle,
   Camera,
   MapPin,
@@ -41,21 +40,22 @@ import {
   ChevronUp
 } from 'lucide-react';
 import ScrollProgress from '@/components/ScrollExperience/ScrollProgress';
+import BrandMark from '@/components/BrandMark';
 
 const SECTIONS = [
   { id: 'quick-cheat-sheet', title: 'Quick Action Cheat Sheet', icon: Zap, color: 'text-amber-400', category: 'Overview' },
-  { id: 'inspection', title: '1. Metadata Inspection & Tag CRUD', icon: FileText, color: 'text-blue-400', category: 'Core' },
+  { id: 'inspection', title: '1. Metadata Inspection & Tag CRUD', icon: FileText, color: 'text-purple-400', category: 'Core' },
   { id: 'compare', title: '2. Metadata Comparator & Live Sync', icon: GitCompare, color: 'text-amber-400', category: 'Workflows' },
   { id: 'presets', title: '3. Metadata & SEO Presets Manager', icon: Sliders, color: 'text-purple-400', category: 'Automation' },
   { id: 'privacy', title: '4. Privacy Shield & OPSEC Scrubbing', icon: ShieldAlert, color: 'text-rose-400', category: 'Security' },
-  { id: 'ai-workflow', title: '5. ComfyUI & SD Prompt Decoder', icon: Cpu, color: 'text-indigo-400', category: 'AI Generation' },
+  { id: 'ai-workflow', title: '5. ComfyUI & SD Prompt Decoder', icon: Cpu, color: 'text-purple-400', category: 'AI Generation' },
   { id: 'gemini-seo', title: '6. Gemini Vision AI SEO Studio', icon: Sparkles, color: 'text-purple-400', category: 'AI Intelligence' },
   { id: 'social-preview', title: '7. Search & Social Card Simulator', icon: Globe, color: 'text-emerald-400', category: 'Publishing' },
   { id: 'sitemap-xml', title: '8. Image Sitemap (XML) Builder', icon: FileCode, color: 'text-cyan-400', category: 'SEO' },
-  { id: 'batch-zip', title: '9. Batch Queue & Bulk Operations', icon: Download, color: 'text-indigo-400', category: 'Productivity' },
+  { id: 'batch-zip', title: '9. Batch Queue & Bulk Operations', icon: Download, color: 'text-purple-400', category: 'Productivity' },
   { id: 'history', title: '10. Audit History & Snapshot Rollback', icon: History, color: 'text-emerald-400', category: 'Version Control' },
   { id: 'json-catalog', title: '11. JSON Metadata Catalog Export', icon: Layers, color: 'text-amber-400', category: 'Developer' },
-  { id: 'canvas-shortcuts', title: '12. Canvas Zoom, Pan & Shortcuts', icon: Keyboard, color: 'text-pink-400', category: 'Navigation' },
+  { id: 'canvas-shortcuts', title: '12. Canvas Zoom, Pan & Shortcuts', icon: Keyboard, color: 'text-purple-400', category: 'Navigation' },
   { id: 'hex-viewer', title: '13. Raw Hex Stream & Byte Headers', icon: Binary, color: 'text-cyan-400', category: 'Low-Level' },
   { id: 'troubleshooting-faq', title: '14. Troubleshooting & FAQ', icon: HelpCircle, color: 'text-teal-400', category: 'Support' }
 ];
@@ -173,15 +173,11 @@ export default function TutorialPage() {
       <ScrollProgress />
       
       {/* Top Navbar */}
-      <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
+      <nav aria-label="Site" className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
         <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-md flex items-center justify-center">
-            <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
-              <Flame className="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
-            </div>
-          </div>
+          <BrandMark className="w-8 h-8" />
           <div className="flex flex-col">
-            <span className="text-xs sm:text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
+            <span className="text-xs sm:text-sm font-bold tracking-wider text-white uppercase">METAFORGE</span>
             <span className="hidden sm:block text-[10px] text-neutral-400 font-mono -mt-1">DOCUMENTATION &amp; MASTER GUIDE</span>
           </div>
         </Link>
@@ -231,7 +227,7 @@ export default function TutorialPage() {
             </div>
 
             {/* Quick module links list */}
-            <nav className="flex flex-col gap-1 max-h-[calc(100vh-290px)] overflow-y-auto pr-1 text-xs">
+            <nav aria-label="On this page" className="flex flex-col gap-1 max-h-[calc(100vh-290px)] overflow-y-auto pr-1 text-xs">
               {filteredSections.map((sec) => {
                 const Icon = sec.icon;
                 const isActive = activeSection === sec.id;
@@ -277,7 +273,7 @@ export default function TutorialPage() {
         </aside>
 
         {/* RIGHT MASTER DOCUMENTATION CONTENT (col-span-9) */}
-        <main className="lg:col-span-9 flex flex-col gap-12 sm:gap-16">
+        <main id="main-content" tabIndex={-1} className="outline-none lg:col-span-9 flex flex-col gap-12 sm:gap-16">
           
           {/* Header & Overview */}
           <div className="flex flex-col gap-3 border-b border-neutral-800 pb-6">
@@ -289,7 +285,7 @@ export default function TutorialPage() {
               <span className="text-xs text-neutral-500 font-mono">v1.2.0 • Updated October 2026</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight">
               MetaForge Complete Technical Documentation
             </h1>
             <p className="text-xs sm:text-sm text-neutral-400 max-w-3xl leading-relaxed">
@@ -300,7 +296,7 @@ export default function TutorialPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
               <div className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-[11px] flex flex-col gap-0.5">
                 <span className="font-bold text-white flex items-center gap-1">
-                  <Camera className="w-3.5 h-3.5 text-blue-400" /> Photographers
+                  <Camera className="w-3.5 h-3.5 text-neutral-400" /> Photographers
                 </span>
                 <span className="text-neutral-400">EXIF, Lens specs, serials, copyright</span>
               </div>
@@ -318,7 +314,7 @@ export default function TutorialPage() {
               </div>
               <div className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-[11px] flex flex-col gap-0.5">
                 <span className="font-bold text-white flex items-center gap-1">
-                  <Cpu className="w-3.5 h-3.5 text-amber-400" /> AI Creators
+                  <Cpu className="w-3.5 h-3.5 text-neutral-400" /> AI Creators
                 </span>
                 <span className="text-neutral-400">ComfyUI &amp; SD prompts, seeds, sampler</span>
               </div>
@@ -386,7 +382,7 @@ export default function TutorialPage() {
                   <tr className="hover:bg-neutral-850/50">
                     <td className="px-4 py-3 font-semibold text-white">Bulk rename files using tags</td>
                     <td className="px-4 py-3 text-neutral-400">Queue list &rarr; &quot;Batch Edit&quot;</td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-blue-300">Switch to &quot;Bulk Renaming&quot; tab</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-purple-300">Switch to &quot;Bulk Renaming&quot; tab</td>
                   </tr>
                   <tr className="hover:bg-neutral-850/50">
                     <td className="px-4 py-3 font-semibold text-white">Rollback accidental metadata edits</td>
@@ -401,7 +397,7 @@ export default function TutorialPage() {
           {/* 1. Metadata Inspection & Tag CRUD */}
           <section id="inspection" className="flex flex-col gap-4 scroll-mt-24">
             <div className="flex items-center gap-2.5 border-b border-neutral-800 pb-2">
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 <FileText className="w-5 h-5" />
               </div>
               <div>
@@ -427,7 +423,7 @@ export default function TutorialPage() {
 
                 <div className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1.5">
                   <span className="font-semibold text-neutral-200 flex items-center gap-1.5 text-xs">
-                    <Tag className="w-4 h-4 text-amber-400" /> IPTC Attributes
+                    <Tag className="w-4 h-4 text-neutral-400" /> IPTC Attributes
                   </span>
                   <p className="text-xs text-neutral-400">
                     Headline, Caption, CopyrightNotice, Byline (Artist), Credit, Source, City, and Keywords array.
@@ -473,7 +469,7 @@ export default function TutorialPage() {
 
               {/* Pro Tip */}
               <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/20 flex items-start gap-2.5">
-                <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <Lightbulb className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <span className="font-bold text-amber-300">Pro Tip — Custom Tag Injection:</span>
                   <p className="text-neutral-400 mt-0.5">
@@ -510,7 +506,7 @@ export default function TutorialPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold shrink-0">&rarr;</span>
-                    <span><strong>Bi-directional Field Sync:</strong> Click <code className="text-purple-300 bg-neutral-800 px-1 rounded">Copy A &rarr; B</code> or <code className="text-blue-300 bg-neutral-800 px-1 rounded">Copy B &rarr; A</code> on Title, Alt Text, Keywords, Camera Model, Lens, or Copyright.</span>
+                    <span><strong>Bi-directional Field Sync:</strong> Click <code className="text-purple-300 bg-neutral-800 px-1 rounded">Copy A &rarr; B</code> or <code className="text-purple-300 bg-neutral-800 px-1 rounded">Copy B &rarr; A</code> on Title, Alt Text, Keywords, Camera Model, Lens, or Copyright.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold shrink-0">&rarr;</span>
@@ -564,7 +560,7 @@ export default function TutorialPage() {
               </div>
 
               <div className="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/20 flex items-start gap-2.5">
-                <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <Lightbulb className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <span className="font-bold text-amber-300">Batch Preset Application:</span>
                   <p className="text-neutral-400 mt-0.5">
@@ -602,8 +598,8 @@ export default function TutorialPage() {
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 flex flex-col gap-1">
-                  <span className="font-bold text-indigo-400 text-xs flex items-center gap-1">
+                <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 flex flex-col gap-1">
+                  <span className="font-bold text-purple-400 text-xs flex items-center gap-1">
                     <ShieldAlert className="w-3.5 h-3.5" /> Sanitize for Social
                   </span>
                   <p className="text-[11px] text-neutral-400">
@@ -637,7 +633,7 @@ export default function TutorialPage() {
           {/* 5. ComfyUI & SD Prompt Decoder */}
           <section id="ai-workflow" className="flex flex-col gap-4 scroll-mt-24">
             <div className="flex items-center gap-2.5 border-b border-neutral-800 pb-2">
-              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 <Cpu className="w-5 h-5" />
               </div>
               <div>
@@ -663,7 +659,7 @@ export default function TutorialPage() {
 
               {/* Sample AI JSON snippet */}
               <div className="relative">
-                <pre className="p-3.5 rounded-xl bg-black border border-neutral-800 text-[11px] font-mono text-indigo-300 overflow-x-auto max-h-48">
+                <pre className="p-3.5 rounded-xl bg-black border border-neutral-800 text-[11px] font-mono text-purple-300 overflow-x-auto max-h-48">
                   {sampleAiPromptJson}
                 </pre>
                 <button
@@ -809,7 +805,7 @@ export default function TutorialPage() {
           {/* 9. Batch Queue & Bulk Operations */}
           <section id="batch-zip" className="flex flex-col gap-4 scroll-mt-24">
             <div className="flex items-center gap-2.5 border-b border-neutral-800 pb-2">
-              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 <Download className="w-5 h-5" />
               </div>
               <div>
@@ -832,17 +828,17 @@ export default function TutorialPage() {
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
-                  <span className="font-bold text-blue-400 text-xs">Dynamic Filename Renamer</span>
+                  <span className="font-bold text-purple-400 text-xs">Dynamic Filename Renamer</span>
                   <p className="text-xs text-neutral-400">
                     Pattern renamer supporting <code>{'{title}'}</code>, <code>{'{date}'}</code>, <code>{'{artist}'}</code>, and <code>{'{counter}'}</code>.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-start gap-2.5">
-                <Layers className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/20 flex items-start gap-2.5">
+                <Layers className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
                 <div className="text-xs">
-                  <span className="font-bold text-indigo-300">Memory-Streamed ZIP Export:</span>
+                  <span className="font-bold text-purple-300">Memory-Streamed ZIP Export:</span>
                   <p className="text-neutral-400 mt-0.5">
                     Click <strong>&quot;Download All (ZIP)&quot;</strong> to bundle all modified images into a single compressed archive without sending any data over the internet.
                   </p>
@@ -870,7 +866,7 @@ export default function TutorialPage() {
 
               <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 text-xs flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[10px]">User</span>
+                  <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono text-[10px]">User</span>
                   <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono text-[10px]">AI</span>
                   <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px]">Preset</span>
                   <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">System</span>
@@ -943,7 +939,7 @@ export default function TutorialPage() {
           {/* 12. Canvas Zoom, Pan & Shortcuts */}
           <section id="canvas-shortcuts" className="flex flex-col gap-4 scroll-mt-24">
             <div className="flex items-center gap-2.5 border-b border-neutral-800 pb-2">
-              <div className="p-2 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
                 <Keyboard className="w-5 h-5" />
               </div>
               <div>
@@ -956,7 +952,7 @@ export default function TutorialPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col gap-2">
                   <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                    <ZoomIn className="w-4 h-4 text-pink-400" /> Touch &amp; Mouse Controls
+                    <ZoomIn className="w-4 h-4 text-neutral-400" /> Touch &amp; Mouse Controls
                   </span>
                   <ul className="text-xs text-neutral-400 space-y-1.5">
                     <li>• <strong>Zoom:</strong> Click + / - to scale between 50% and 400%</li>
@@ -1051,14 +1047,14 @@ export default function TutorialPage() {
           </section>
 
           {/* CTA Footer */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-neutral-900 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-5 mt-6">
+          <div className="p-6 sm:p-8 rounded-3xl bg-neutral-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-5 mt-6">
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-white">Ready to Put MetaForge to Work?</h3>
               <p className="text-xs text-neutral-400 mt-1">Jump right in or load built-in sample demo images with one click.</p>
             </div>
             <Link
               href="/"
-              className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/30 transition shrink-0"
+              className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg transition shrink-0"
             >
               Open Studio Workstation
             </Link>

@@ -172,8 +172,8 @@ export default function MetadataCompareView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-            <GitCompare className="w-5 h-5 text-amber-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <GitCompare className="w-5 h-5 text-neutral-400" />
             Side-by-Side Metadata Difference &amp; Live Editor
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
@@ -223,7 +223,7 @@ export default function MetadataCompareView() {
         {/* Slot B */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Asset B</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-400">Asset B</span>
             <div className="flex items-center gap-2">
               <select
                 value={fileB?.id}
@@ -240,7 +240,7 @@ export default function MetadataCompareView() {
                   title="Open Asset B in Studio Inspector"
                   className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition flex items-center gap-1 text-xs"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                  <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
                   <span className="hidden sm:inline">Studio</span>
                 </button>
               )}
@@ -263,7 +263,7 @@ export default function MetadataCompareView() {
           <div className="col-span-3">Metadata Field</div>
           <div className="col-span-4 text-purple-300">Asset A Value</div>
           <div className="col-span-1 text-center">Sync</div>
-          <div className="col-span-4 text-blue-300">Asset B Value</div>
+          <div className="col-span-4 text-purple-300">Asset B Value</div>
         </div>
 
         <div className="divide-y divide-neutral-800/40">
@@ -338,7 +338,7 @@ export default function MetadataCompareView() {
                 {/* Asset B Value + Direct Edit Pencil */}
                 <div className="col-span-4 flex items-center justify-between gap-1 pl-2">
                   <span className={`font-mono truncate ${
-                    isMatch ? 'text-neutral-300' : 'text-blue-300 font-semibold'
+                    isMatch ? 'text-neutral-300' : 'text-purple-300 font-semibold'
                   }`} title={valB}>
                     {valB}
                   </span>
@@ -352,7 +352,7 @@ export default function MetadataCompareView() {
                         initialValue: initialValue(field, fileB, valB)
                       })}
                       title={`Edit ${field.key} on Asset B`}
-                      className="p-1 rounded text-neutral-500 hover:text-blue-400 hover:bg-neutral-800 shrink-0"
+                      className="p-1 rounded text-neutral-500 hover:text-purple-400 hover:bg-neutral-800 shrink-0"
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -429,16 +429,16 @@ export default function MetadataCompareView() {
                     onClick={() => handleCopyFieldBtoA(field.key, valB)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-750 text-neutral-200 border border-neutral-700 touch-target"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5 text-blue-400" />
+                    <ArrowLeft className="w-3.5 h-3.5 text-neutral-400" />
                     <span>Copy B → A</span>
                   </button>
                 </div>
               )}
 
               {/* Asset B Value + Edit */}
-              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-blue-950/20 border border-blue-500/20">
+              <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-purple-950/20 border border-purple-500/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-blue-400">Asset B Value</span>
+                  <span className="text-[10px] font-bold uppercase text-purple-400">Asset B Value</span>
                   {isEditable && fileB && (
                     <button
                       onClick={() => setEditingTarget({
@@ -447,14 +447,14 @@ export default function MetadataCompareView() {
                         tagKey: field.tagKey,
                         initialValue: initialValue(field, fileB, valB)
                       })}
-                      className="text-[11px] text-blue-400 hover:text-white flex items-center gap-1 touch-target sm:min-h-0"
+                      className="text-[11px] text-purple-400 hover:text-white flex items-center gap-1 touch-target sm:min-h-0"
                     >
                       <Edit2 className="w-3 h-3" />
                       <span>Edit</span>
                     </button>
                   )}
                 </div>
-                <span className="text-xs font-mono text-blue-200 break-words">{valB}</span>
+                <span className="text-xs font-mono text-purple-200 break-words">{valB}</span>
               </div>
             </div>
           );

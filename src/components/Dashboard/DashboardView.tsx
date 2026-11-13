@@ -52,8 +52,8 @@ export default function DashboardView() {
       {/* Welcome SaaS Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-            <Flame className="w-6 h-6 text-amber-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <Flame className="w-6 h-6 text-neutral-400" />
             MetaForge SaaS Operations Console
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">
@@ -68,14 +68,14 @@ export default function DashboardView() {
               disabled={isProcessing}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition"
             >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <Sparkles className="w-3.5 h-3.5 text-neutral-400" />
               Load Sample Data
             </button>
           )}
 
           <button
             onClick={() => setCurrentView('studio')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg shadow-purple-600/20"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-lg"
           >
             <Layers className="w-3.5 h-3.5" />
             Open Studio Workstation
@@ -87,9 +87,9 @@ export default function DashboardView() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-            <ImageIcon className="w-3.5 h-3.5 text-blue-400" /> Total Images
+            <ImageIcon className="w-3.5 h-3.5 text-neutral-400" /> Total Images
           </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-white mt-1">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
             {total}
           </div>
           <span className="text-[10px] text-neutral-500 font-mono">In memory queue</span>
@@ -97,9 +97,9 @@ export default function DashboardView() {
 
         <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Processed
+            <CheckCircle2 className="w-3.5 h-3.5 text-neutral-400" /> Processed
           </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
             {processed}
           </div>
           <span className="text-[10px] text-neutral-500 font-mono">Locally modified</span>
@@ -107,9 +107,9 @@ export default function DashboardView() {
 
         <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" /> SEO Enriched
+            <Sparkles className="w-3.5 h-3.5 text-neutral-400" /> SEO Enriched
           </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-purple-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
             {seoOptimized}
           </div>
           <span className="text-[10px] text-neutral-500 font-mono">Alt text + title set</span>
@@ -117,9 +117,9 @@ export default function DashboardView() {
 
         <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Privacy Clean
+            <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" /> Privacy Clean
           </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
             {privacyCleaned}
           </div>
           <span className="text-[10px] text-neutral-500 font-mono">Zero location leak</span>
@@ -127,9 +127,9 @@ export default function DashboardView() {
 
         <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-1">
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> GPS Exposed
+            <AlertTriangle className="w-3.5 h-3.5 text-neutral-400" /> GPS Exposed
           </span>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-rose-400 mt-1">
+          <div className={`text-2xl sm:text-3xl font-bold font-mono mt-1 ${gpsExposed ? 'text-rose-400' : 'text-white'}`}>
             {gpsExposed}
           </div>
           <span className="text-[10px] text-neutral-500 font-mono">Action required</span>
@@ -162,8 +162,8 @@ export default function DashboardView() {
             className="p-4 rounded-2xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-left flex items-start justify-between transition group disabled:opacity-50"
           >
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                <MapPinOff className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <MapPinOff className="w-3.5 h-3.5 text-neutral-400" />
                 Purge All GPS ({gpsExposed})
               </span>
               <p className="text-[11px] text-neutral-400">Scrub location coordinates</p>
@@ -177,8 +177,8 @@ export default function DashboardView() {
             className="p-4 rounded-2xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-left flex items-start justify-between transition group disabled:opacity-50"
           >
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
                 Social Media Sanitize
               </span>
               <p className="text-[11px] text-neutral-400">Strip device IDs, keep attribution</p>
@@ -192,8 +192,8 @@ export default function DashboardView() {
             className="p-4 rounded-2xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-left flex items-start justify-between transition group disabled:opacity-50"
           >
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                <GitCompare className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <GitCompare className="w-3.5 h-3.5 text-neutral-400" />
                 Compare Metadata
               </span>
               <p className="text-[11px] text-neutral-400">Side-by-side diff comparison</p>

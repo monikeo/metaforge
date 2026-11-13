@@ -114,7 +114,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-neutral-300 hover:text-white hover:bg-neutral-800 touch-target sm:min-h-0 sm:min-w-0"
               title="Download these images as a ZIP archive"
             >
-              <Download className="w-3.5 h-3.5 text-blue-400" />
+              <Download className="w-3.5 h-3.5 text-neutral-400" />
               <span className="hidden sm:inline">ZIP</span>
             </button>
             <button
@@ -214,7 +214,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 type="button"
                 disabled={isProcessing || !targetCount || !hasMetadataChanges}
                 onClick={handleApplyMetadata}
-                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 Apply to {targetCount} Files
@@ -262,7 +262,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 type="button"
                 disabled={isProcessing || !targetCount || !template.trim() || !!renameError}
                 onClick={handleApplyRename}
-                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 Rename {targetCount} Files
@@ -317,7 +317,7 @@ export default function BatchActionsModal({ isOpen, onClose }: BatchActionsModal
                 type="button"
                 disabled={isProcessing || !targetCount || !aiReady}
                 onClick={handleGenerateSeo}
-                className="px-4 py-2 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20 flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+                className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Generate for {targetCount} Files

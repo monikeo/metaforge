@@ -219,7 +219,7 @@ export default function TagEditorModal({
                   detectedType === 'JSON'
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                     : detectedType === 'Number'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                     : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                 }`}>
                   {detectedType}
@@ -259,7 +259,7 @@ export default function TagEditorModal({
             <button
               type="submit"
               disabled={!currentKey.trim() || isSaving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md shadow-purple-600/20"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white flex items-center justify-center gap-1.5 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-md"
             >
               <Check className="w-3.5 h-3.5" />
               {isSaving ? 'Saving…' : isNew ? 'Create Tag' : 'Save Tag'}

@@ -157,7 +157,7 @@ export default function AISettingsModal() {
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/20 transition flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg transition flex items-center justify-center gap-1.5 touch-target sm:min-h-0 sm:min-w-0 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Save Configuration

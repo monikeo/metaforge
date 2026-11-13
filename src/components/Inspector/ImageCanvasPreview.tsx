@@ -142,7 +142,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
     <div className="flex flex-col gap-2.5 rounded-2xl bg-neutral-900 border border-neutral-800 p-3 sm:p-4 shadow-xl">
       {/* Canvas Top Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-2.5">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-[9rem] flex-1">
           {isEditingName ? (
             <div className="flex items-center gap-1.5">
               <input
@@ -183,7 +183,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
               <span
                 onClick={startRename}
                 title="Click to rename file"
-                className="text-xs font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[min(16rem,50vw)] cursor-pointer hover:text-purple-300 transition"
+                className="text-xs font-bold text-white truncate min-w-0 cursor-pointer hover:text-purple-300 transition"
               >
                 {file.name}
               </span>
@@ -198,7 +198,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           )}
 
           {file.isDirty ? (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
               MODIFIED
             </span>
           ) : (
@@ -208,39 +208,14 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           )}
         </div>
 
-        {/* Zoom & Download Toolbar */}
-        <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-1.5 min-w-0 max-w-full ml-auto">
-          <button
-            onClick={handleZoomOut}
-            title="Zoom Out"
-            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-          <span className="text-[11px] font-mono text-neutral-400 w-8 text-center select-none">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            title="Zoom In"
-            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={handleReset}
-            title="Reset Zoom & Pan"
-            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 ml-auto">
           <button
             onClick={() => setIsHistoryOpen(true)}
             title="Audit History & Snapshots"
             className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition relative min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
           >
-            <History className="w-3.5 h-3.5 text-purple-400" />
+            <History className="w-3.5 h-3.5" />
             {file.history && file.history.length > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-purple-500" />
             )}
@@ -249,7 +224,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <button
             onClick={() => exportMetadataJson(file.id)}
             title="Export Metadata as JSON (.json)"
-            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
+            className="p-2 sm:p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer touch-press"
           >
             <FileCode className="w-3.5 h-3.5" />
           </button>
@@ -257,10 +232,10 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <button
             aria-label="Download image"
             onClick={() => exportSingle(file.id)}
-            className="ml-1 sm:ml-2 flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition shadow-xs min-h-[36px] cursor-pointer touch-press"
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition min-h-[36px] cursor-pointer touch-press"
           >
-            <Download className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Download</span>
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Download</span>
           </button>
         </div>
       </div>
@@ -274,7 +249,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onDoubleClick={handleDoubleTap}
-        className={`relative w-full h-[250px] xs:h-[290px] sm:h-[360px] md:h-[400px] xl:h-[420px] rounded-xl overflow-hidden bg-black/90 flex items-center justify-center select-none group shadow-inner ${
+        className={`relative w-full h-[clamp(14rem,40dvh,28rem)] rounded-xl overflow-hidden bg-black/90 flex items-center justify-center select-none group shadow-inner ${
           scale > 1 ? 'cursor-grab active:cursor-grabbing touch-none' : 'cursor-default touch-pan-y'
         }`}
         style={{
@@ -293,15 +268,17 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <>
             <button
               onClick={handlePrevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-neutral-800 text-white/70 hover:text-white backdrop-blur-md border border-neutral-700/60 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition touch-press"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-neutral-800 text-white/70 hover:text-white backdrop-blur-md border border-neutral-700/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition touch-press"
               title="Previous photo (← or [)"
+              aria-label="Previous image"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleNextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-neutral-800 text-white/70 hover:text-white backdrop-blur-md border border-neutral-700/60 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition touch-press"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-neutral-800 text-white/70 hover:text-white backdrop-blur-md border border-neutral-700/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition touch-press"
               title="Next photo (→ or ])"
+              aria-label="Next image"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -309,7 +286,7 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
         )}
 
         <div
-          className="transition-transform duration-75 ease-out"
+          className="h-full w-full flex items-center justify-center transition-transform duration-75 ease-out"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: 'center center'
@@ -319,17 +296,50 @@ export default function ImageCanvasPreview({ file }: ImageCanvasPreviewProps) {
           <img
             src={file.thumbnailUrl}
             alt={file.name}
-            className="max-h-[220px] xs:max-h-[260px] sm:max-h-[330px] md:max-h-[360px] xl:max-h-[380px] max-w-full object-contain pointer-events-none rounded shadow-2xl"
+            className="max-h-[calc(100%-1rem)] max-w-[calc(100%-1rem)] object-contain pointer-events-none rounded shadow-2xl"
           />
         </div>
 
         {/* Dimension & Format Overlay Badge */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/85 backdrop-blur-md border border-neutral-800 text-[10px] font-mono text-neutral-300 shadow-md">
+        <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/85 backdrop-blur-md border border-neutral-800 text-[11px] font-mono text-neutral-300 shadow-md">
           <span>{file.type.replace('image/', '').toUpperCase()}</span>
-          <span>•</span>
+          <span aria-hidden="true">•</span>
           <span>{file.width && file.height ? `${file.width}×${file.height} px` : 'N/A'}</span>
-          <span>•</span>
-          <span>{formatBytes(file.size)}</span>
+          <span className="hidden xs:inline" aria-hidden="true">•</span>
+          <span className="hidden xs:inline">{formatBytes(file.size)}</span>
+        </div>
+
+        {/* Zoom controls float over the image. Double clicks here must not toggle zoom on the canvas behind them. */}
+        <div
+          role="group"
+          aria-label="Zoom"
+          onDoubleClick={(event) => event.stopPropagation()}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 p-0.5 rounded-xl bg-black/85 backdrop-blur-md border border-neutral-800 shadow-md"
+        >
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out"
+            className="p-2 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-300 transition min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer touch-press"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[11px] font-mono text-neutral-300 w-10 text-center select-none" aria-label={`Zoom ${Math.round(scale * 100)} percent`}>
+            {Math.round(scale * 100)}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In"
+            className="p-2 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-300 transition min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer touch-press"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleReset}
+            title="Reset Zoom & Pan"
+            className="p-2 sm:p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-300 transition min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer touch-press"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Mobile Swipe Hint Badge (Visible briefly or when scale is 1 on mobile) */}

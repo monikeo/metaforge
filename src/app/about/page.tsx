@@ -1,16 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
-import { 
-  Flame, 
-  ArrowLeft, 
-  ShieldCheck, 
-  Cpu, 
-  Sparkles, 
-  Lock, 
-  FileCode, 
-  Globe, 
-  Layers, 
-  Zap, 
+import {
+  ArrowLeft,
+  ShieldCheck,
+  Cpu,
+  Sparkles,
+  Lock,
+  FileCode,
+  Globe,
+  Layers,
+  Zap,
   Database,
   ExternalLink,
   MapPinOff,
@@ -23,6 +22,7 @@ import {
 
 import ScrollProgress from '@/components/ScrollExperience/ScrollProgress';
 import { DEFAULT_GEMINI_MODEL } from '@/lib/ai-models';
+import BrandMark from '@/components/BrandMark';
 
 const buildYear = new Date().getFullYear();
 
@@ -46,15 +46,11 @@ export default function AboutPage() {
       <ScrollProgress />
       
       {/* Top Navbar */}
-      <nav className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
+      <nav aria-label="Site" className="sticky top-0 z-40 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur-md px-4 sm:px-6 h-16 flex items-center justify-between pt-safe">
         <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 via-indigo-600 to-amber-500 p-0.5 shadow-md flex items-center justify-center">
-            <div className="w-full h-full bg-neutral-950 rounded-[10px] flex items-center justify-center">
-              <Flame className="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
-            </div>
-          </div>
+          <BrandMark className="w-8 h-8" />
           <div className="flex flex-col">
-            <span className="text-xs sm:text-sm font-black tracking-wider text-white uppercase">METAFORGE</span>
+            <span className="text-xs sm:text-sm font-bold tracking-wider text-white uppercase">METAFORGE</span>
             <span className="hidden sm:block text-[10px] text-neutral-400 font-mono -mt-1">ARCHITECTURE & DOCS</span>
           </div>
         </Link>
@@ -81,7 +77,7 @@ export default function AboutPage() {
             href="https://vercel.com/new"
             target="_blank"
             rel="noreferrer"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shadow-md shadow-purple-600/20"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition shadow-md"
           >
             Deploy to Vercel
             <ExternalLink className="w-3 h-3" />
@@ -90,7 +86,7 @@ export default function AboutPage() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 w-full min-w-0 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-12 sm:gap-16 pb-safe">
+      <main id="main-content" tabIndex={-1} className="outline-none flex-1 w-full min-w-0 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col gap-12 sm:gap-16 pb-safe">
         
         {/* Hero Section */}
         <section className="flex flex-col gap-4 text-center sm:text-left">
@@ -99,7 +95,7 @@ export default function AboutPage() {
             <span>Next-Gen Image Metadata & SEO Engine</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
             Inspect. Clean. Enrich. Publish.
           </h1>
 
@@ -112,7 +108,7 @@ export default function AboutPage() {
         <section className="flex flex-col gap-6">
           <div className="border-b border-neutral-800 pb-3">
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-400" />
+              <Zap className="w-5 h-5 text-neutral-400" />
               The &quot;ExifTool + Vercel&quot; Reality Audit
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
@@ -144,7 +140,7 @@ export default function AboutPage() {
             </div>
 
             {/* The MetaForge Dual-Engine Solution */}
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/30 to-indigo-950/30 border border-purple-500/30 flex flex-col gap-3">
+            <div className="p-5 rounded-2xl bg-neutral-900/60 border border-purple-500/30 flex flex-col gap-3">
               <span className="text-xs font-bold font-mono uppercase tracking-wider text-purple-300 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 MetaForge Dual-Engine Architecture
@@ -184,7 +180,7 @@ export default function AboutPage() {
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 Parse &amp; Extract Latency
               </span>
-              <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-1">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-400 mt-1">
                 Device dependent
               </div>
               <span className="text-[11px] text-neutral-500">Parsing and writing run locally in JavaScript</span>
@@ -194,7 +190,7 @@ export default function AboutPage() {
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 Bandwidth Ingestion Cost
               </span>
-              <div className="text-2xl sm:text-3xl font-black font-mono text-white mt-1">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-white mt-1">
                 0 Bytes
               </div>
               <span className="text-[11px] text-neutral-500">Zero file upload to backend hosting</span>
@@ -204,7 +200,7 @@ export default function AboutPage() {
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 Batch Scheduling
               </span>
-              <div className="text-2xl sm:text-3xl font-black font-mono text-purple-400 mt-1">
+              <div className="text-2xl sm:text-3xl font-bold font-mono text-purple-400 mt-1">
                 Sequential
               </div>
               <span className="text-[11px] text-neutral-500">Per-file progress and failures are reported</span>
@@ -216,7 +212,7 @@ export default function AboutPage() {
         <section className="flex flex-col gap-6">
           <div className="border-b border-neutral-800 pb-3">
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <Layers className="w-5 h-5 text-indigo-400" />
+              <Layers className="w-5 h-5 text-neutral-400" />
               Engine Specifications &amp; Capabilities
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
@@ -257,7 +253,7 @@ export default function AboutPage() {
 
             {/* Spec Card 4 */}
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-purple-400 font-bold text-xs uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" /> Gemini Vision SEO
               </div>
               <p className="text-xs text-neutral-400 leading-relaxed">
@@ -291,7 +287,7 @@ export default function AboutPage() {
         <section className="flex flex-col gap-6">
           <div className="border-b border-neutral-800 pb-3">
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <HardDrive className="w-5 h-5 text-blue-400" />
+              <HardDrive className="w-5 h-5 text-neutral-400" />
               Supported Formats &amp; Standards Matrix
             </h2>
             <p className="text-xs sm:text-sm text-neutral-400 mt-1">
@@ -365,7 +361,7 @@ export default function AboutPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
                 <Database className="w-4 h-4" />
               </div>
               <div>
@@ -419,9 +415,9 @@ export default function AboutPage() {
         </section>
 
         {/* CTA Banner */}
-        <section className="p-8 rounded-3xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-neutral-900 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <section className="p-8 rounded-3xl bg-neutral-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex flex-col gap-2 text-center sm:text-left">
-            <h3 className="text-xl sm:text-2xl font-black text-white">Ready to inspect and enrich your images?</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-white">Ready to inspect and enrich your images?</h3>
             <p className="text-xs sm:text-sm text-neutral-400">
               Drag and drop any photo to begin instant in-browser inspection.
             </p>
@@ -429,7 +425,7 @@ export default function AboutPage() {
 
           <Link
             href="/"
-            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/30 transition shrink-0"
+            className="px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-xl transition shrink-0"
           >
             Launch MetaForge Studio
           </Link>

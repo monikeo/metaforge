@@ -18,7 +18,7 @@ export default function GlobalError({
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col items-center justify-center p-6 text-center select-none font-sans">
       <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl flex flex-col items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shadow-lg shadow-rose-950/30">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shadow-lg">
           <AlertTriangle className="w-7 h-7" />
         </div>
 
@@ -40,7 +40,7 @@ export default function GlobalError({
         <div className="flex items-center gap-2.5 w-full pt-2">
           <button
             onClick={() => retry()}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transition active:scale-95"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-lg transition active:scale-95"
           >
             <RefreshCcw className="w-3.5 h-3.5" />
             <span>Recover Session</span>

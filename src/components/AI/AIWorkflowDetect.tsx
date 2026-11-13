@@ -35,7 +35,7 @@ export default function AIWorkflowDetect({ workflow }: AIWorkflowDetectProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-purple-500/30 p-4 shadow-lg shadow-purple-950/20">
+    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 border border-purple-500/30 p-4 shadow-lg">
       {/* Header Banner */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
