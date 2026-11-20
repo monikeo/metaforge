@@ -41,6 +41,8 @@ const CSV_COLUMNS: [string, (file: MetaFile) => unknown][] = [
   ['Privacy score', (file) => file.privacyReport.score],
   ['Privacy issues', (file) => file.privacyReport.issues.map((issue) => issue.title)],
   ['AI workflow', (file) => file.aiWorkflow.detected ? file.aiWorkflow.type : ''],
+  ['AI label status', (file) => ({ LABELED: 'Platform AI label signals', TRACES: 'AI metadata', CLEAN: 'None found' })[file.aiProvenance?.status] ?? ''],
+  ['AI signals', (file) => file.aiProvenance?.signals.map((signal) => signal.label) ?? []],
   ['Modified in MetaForge', (file) => file.isDirty ? 'yes' : 'no']
 ];
 function csvCell(value: unknown): string {

@@ -73,7 +73,7 @@ test('Gemini JSON validation rejects incomplete drafts and normalizes valid outp
 });
 
 test('Workspace URLs validate views and retain legacy batch links',()=>{
- for(const view of ['dashboard','compare','presets','jobs']) assert.equal(workspaceHref(workspaceView(view)),`/?view=${view}`);
+ for(const view of ['dashboard','ai-labels','compare','presets','jobs']) assert.equal(workspaceHref(workspaceView(view)),`/?view=${view}`);
  for(const view of [null,undefined,'not-a-view','studio']) assert.equal(workspaceHref(workspaceView(view)),'/');
  assert.equal(workspaceView('batch'),'jobs');
  store.getState().setCurrentView('batch');assert.equal(store.getState().currentView,'jobs');
@@ -366,4 +366,192 @@ test('CSV export escapes cells and neutralizes spreadsheet formulas',()=>{
  assert.ok(lines.join('\n').includes(`'+Artist`));assert.ok(lines.join('\n').includes('2026:01:02 03:04:05'));assert.ok(lines.join('\n').includes(',-33.5,151.2,HIGH,55,'));
  const json=metadataJson({bytes:new Uint8Array(5),big:10n});assert.equal(JSON.parse(json).bytes,'[binary 5 bytes]');assert.equal(JSON.parse(json).big,'10');
 });
+// ---------------------------------------------------------------- AI labels and provenance
+const {removeAiMetadataFromBlob}=require('../src/lib/metadata-cleaner.ts');
+const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32BE(n);return b;};
+const appSegment=(marker,data)=>Buffer.concat([Buffer.from([255,marker,(data.length+2)>>8,(data.length+2)&255]),data]);
+const cborText=s=>{const b=Buffer.from(s);return Buffer.concat([Buffer.from(b.length<24?[0x60+b.length]:[0x78,b.length]),b]);};
+// A C2PA manifest store: a JUMBF superbox whose description box carries the c2pa UUID and label, then a CBOR claim.
+const c2paStore=(generator,sourceType)=>{
+ const jumd=Buffer.concat([Buffer.from('jumd'),Buffer.from('c2pa'),Buffer.from([0,0x11,0,0x10,0x80,0,0,0xaa,0,0x38,0x9b,0x71,3]),Buffer.from('c2pa\0')]);
+ const claim=Buffer.concat([Buffer.from([0xa2]),cborText('claim_generator'),cborText(generator),cborText('digitalSourceType'),cborText(`http://cv.iptc.org/newscodes/digitalsourcetype/${sourceType}`)]);
+ const body=Buffer.concat([u32(jumd.length+4),jumd,u32(claim.length+8),Buffer.from('cbor'),claim]);
+ return Buffer.concat([u32(body.length+8),Buffer.from('jumb'),body]);
+};
+const xmpXml=props=>`<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/">${props}</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+const AI_XMP='<Iptc4xmpExt:DigitalSourceType>http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia</Iptc4xmpExt:DigitalSourceType><Iptc4xmpExt:AISystemUsed>Firefly Image 3</Iptc4xmpExt:AISystemUsed><xmp:CreatorTool>Adobe Firefly</xmp:CreatorTool><photoshop:City>Hobart</photoshop:City><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Lake</rdf:li></rdf:Alt></dc:title><dc:subject><rdf:Bag><rdf:li>lake</rdf:li><rdf:li>ai generated</rdf:li><rdf:li>dawn</rdf:li></rdf:Bag></dc:subject>';
+const scanData=bytes=>bytes.subarray(bytes.indexOf(Buffer.from([255,218])));
+const iccSegment=appSegment(226,Buffer.concat([Buffer.from('ICC_PROFILE\0'),Buffer.from([1,1]),Buffer.alloc(64,7)]));
+const aiLabeledJpeg=async({orientation}={})=>{
+ const exifFile=await jpegWithExif(exif=>{
+  Object.assign(exif['0th'],{[piexif.ImageIFD.Make]:'Sony',[piexif.ImageIFD.Model]:'A7',[piexif.ImageIFD.Software]:'Midjourney 6.1',[piexif.ImageIFD.Artist]:'Jane Doe',[piexif.ImageIFD.Copyright]:'(c) Jane Doe'});
+  if(orientation)exif['0th'][piexif.ImageIFD.Orientation]=orientation;
+  exif.Exif[piexif.ExifIFD.UserComment]=writer.encodeUserComment('a castle at dusk\nSteps: 30, Sampler: Euler a, Seed: 9');
+  exif.Exif[piexif.ExifIFD.BodySerialNumber]='SN-4411';
+  exif.GPS[piexif.GPSIFD.GPSLatitudeRef]='S';exif.GPS[piexif.GPSIFD.GPSLatitude]=piexif.GPSHelper.degToDmsRational(42.88);
+  exif.GPS[piexif.GPSIFD.GPSLongitudeRef]='E';exif.GPS[piexif.GPSIFD.GPSLongitude]=piexif.GPSHelper.degToDmsRational(147.32);
+ });
+ const bytes=Buffer.from(await exifFile.arrayBuffer());
+ // The manifest is split across two APP11 packets; the second repeats the superbox header, as JPEG JUMBF requires.
+ const store=c2paStore('Adobe_Firefly/1.0 c2pa-rs/0.30','trainedAlgorithmicMedia'),cut=40,head=n=>Buffer.concat([Buffer.from('JP'),Buffer.from([0,7]),u32(n)]);
+ const app11=[appSegment(235,Buffer.concat([head(1),store.subarray(0,cut)])),appSegment(235,Buffer.concat([head(2),store.subarray(0,8),store.subarray(cut)]))];
+ const xmp=appSegment(225,Buffer.concat([Buffer.from('http://ns.adobe.com/xap/1.0/\0'),Buffer.from(xmpXml(AI_XMP))]));
+ const comment=appSegment(254,Buffer.from('Generated with DALL-E 3'));
+ const exifEnd=4+((bytes[4]<<8)|bytes[5]);
+ return new File([Buffer.concat([bytes.subarray(0,exifEnd),xmp,iccSegment,...app11,comment,bytes.subarray(exifEnd)])],'labeled.jpg',{type:'image/jpeg'});
+};
+const parse=async(blob,name='x')=>reader.parseDeepMetadata(new File([blob],name,{type:blob.type}));
+
+test('AI labels: C2PA, IPTC source type, AI fields, prompts and generators are detected in JPEG',async()=>{
+ const parsed=await parse(await aiLabeledJpeg());const {aiProvenance:report}=parsed;
+ assert.equal(report.status,'LABELED');assert.equal(report.generator,'Adobe Firefly');
+ const byId=Object.fromEntries(report.signals.map(s=>[s.id,s]));
+ assert.match(byId.c2pa.detail,/Made with Adobe Firefly · Created with generative AI/);assert.equal(byId.c2pa.triggersLabel,true);
+ assert.match(byId['source-type'].detail,/trainedAlgorithmicMedia/);assert.equal(byId['source-type'].triggersLabel,true);
+ assert.ok(byId['iptc-ai-fields']);
+ const kinds=new Set(report.signals.map(s=>s.kind));for(const kind of ['C2PA','SOURCE_TYPE','AI_FIELD','GENERATOR','PROMPT','DISCLOSURE'])assert.ok(kinds.has(kind),`missing ${kind}`);
+ assert.ok(report.signals.some(s=>s.locations.includes('JPEG comment')));
+ assert.ok(report.signals.some(s=>s.kind==='DISCLOSURE'&&/ai generated/.test(s.detail)),'AI keyword');
+});
+test('AI labels: ordinary photos and look-alike words are not flagged',async()=>{
+ for(const [ext,type] of [['jpg','image/jpeg'],['png','image/png'],['webp','image/webp']])assert.equal((await reader.parseDeepMetadata(fixture(ext,type))).aiProvenance.status,'CLEAN');
+ const camera=await jpegWithExif(exif=>Object.assign(exif['0th'],{[piexif.ImageIFD.Make]:'Google',[piexif.ImageIFD.Model]:'Pixel 8',[piexif.ImageIFD.Software]:'Adobe Photoshop 25.0 (Windows)',[piexif.ImageIFD.Artist]:'Firefly Photography',[piexif.ImageIFD.ImageDescription]:'Runway show in Milan, a Gemini birthday'}));
+ const written=await writer.writeMetadataToBlob(camera,{iptc:{Keywords:['gemini','fashion','flux']},xmp:{DigitalSourceType:'http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture'}});
+ const report=(await parse(written)).aiProvenance;assert.equal(report.status,'CLEAN',JSON.stringify(report.signals));
+});
+test('AI labels: "AI only" removes every AI marker and keeps pixels, camera data, location, attribution and SEO',async()=>{
+ const source=await aiLabeledJpeg();const parsed=await reader.parseDeepMetadata(source);
+ const clean=await removeAiMetadataFromBlob(source,parsed.rawMetadata,{level:'ai',keepAttribution:true});
+ const bytes=Buffer.from(await clean.arrayBuffer()),result=await parse(clean);
+ assert.equal(result.aiProvenance.status,'CLEAN',JSON.stringify(result.aiProvenance.signals));assert.equal(result.aiWorkflow.detected,false);
+ for(const marker of ['c2pa','jumb','trainedAlgorithmicMedia','AISystemUsed','Firefly','Midjourney','DALL-E','Sampler:'])assert.equal(bytes.includes(Buffer.from(marker)),false,`${marker} survived`);
+ assert.deepEqual(scanData(bytes),scanData(Buffer.from(await source.arrayBuffer())));assert.ok(bytes.includes(Buffer.from('ICC_PROFILE')));
+ assert.equal(result.rawMetadata.exif.Make,'Sony');assert.equal(result.rawMetadata.exif.Artist,'Jane Doe');assert.equal(result.rawMetadata.exif.Software,undefined);
+ assert.equal(result.privacyReport.hasGps,true);assert.equal(result.privacyReport.hasDeviceSerial,true);
+ assert.equal(result.seoData.title,'Lake');assert.deepEqual(result.seoData.keywords,['lake','dawn']);
+});
+test('AI labels: the location level also removes GPS, place names and device identifiers',async()=>{
+ const source=await aiLabeledJpeg();const parsed=await reader.parseDeepMetadata(source);
+ const result=await parse(await removeAiMetadataFromBlob(source,parsed.rawMetadata,{level:'private',keepAttribution:true}));
+ assert.equal(result.aiProvenance.status,'CLEAN');assert.equal(result.privacyReport.hasGps,false);assert.equal(result.privacyReport.hasDeviceSerial,false);
+ assert.equal(result.rawMetadata.xmp?.City,undefined);assert.equal(result.rawMetadata.exif.Make,'Sony');assert.equal(result.seoData.title,'Lake');assert.equal(result.rawMetadata.exif.Artist,'Jane Doe');
+});
+test('AI labels: "Everything" is lossless, keeps colour and orientation, and keeps attribution only when asked',async()=>{
+ const source=await aiLabeledJpeg({orientation:6});const parsed=await reader.parseDeepMetadata(source),sourceBytes=Buffer.from(await source.arrayBuffer());
+ for(const keepAttribution of [true,false]){
+  const clean=await removeAiMetadataFromBlob(source,parsed.rawMetadata,{level:'all',keepAttribution});
+  const bytes=Buffer.from(await clean.arrayBuffer()),native=piexif.load(bytes.toString('binary'));
+  assert.deepEqual(scanData(bytes),scanData(sourceBytes),'no re-encoding');assert.ok(bytes.includes(Buffer.from('ICC_PROFILE')));
+  assert.equal(native['0th'][piexif.ImageIFD.Orientation],6);assert.equal(native['0th'][piexif.ImageIFD.Make],undefined);assert.deepEqual(native.GPS,{});
+  assert.equal(native['0th'][piexif.ImageIFD.Artist],keepAttribution?'Jane Doe':undefined);
+  const result=await parse(clean);assert.equal(result.aiProvenance.status,'CLEAN');assert.equal(result.seoData.title,'');
+ }
+});
+test('AI labels: PNG caBX, XMP and generator text chunks are removed without touching image data',async()=>{
+ const zlib=require('node:zlib'),base=new Uint8Array(await fixture('png','image/png').arrayBuffer()),packets=writer.containerPackets(base);
+ const text=(key,value)=>writer.pngChunk('tEXt',Buffer.concat([Buffer.from(key+'\0'),Buffer.from(value,'latin1')]));
+ const xmp=writer.pngChunk('iTXt',Buffer.concat([Buffer.from('XML:com.adobe.xmp\0\0\0\0\0'),Buffer.from(xmpXml(AI_XMP))]));
+ const extra=[writer.pngChunk('caBX',c2paStore('ChatGPT','trainedAlgorithmicMedia')),xmp,text('parameters','koi pond\nSteps: 20, Sampler: DPM++ 2M, Seed: 5'),text('Software','NovelAI'),text('Title','Garden'),writer.pngChunk('zTXt',Buffer.concat([Buffer.from('Comment\0\0'),zlib.deflateSync(Buffer.from('{"prompt":"koi","uc":"blurry","steps":28}'))]))];
+ const source=new Blob([base.subarray(0,8),...packets.filter(p=>p.type!=='IEND').map(p=>p.packet),...extra,packets.at(-1).packet],{type:'image/png'});
+ const parsed=await parse(source);assert.equal(parsed.aiProvenance.status,'LABELED');assert.equal(parsed.aiProvenance.generator,'ChatGPT');
+ const clean=await removeAiMetadataFromBlob(source,parsed.rawMetadata,{level:'ai',keepAttribution:true});const result=await parse(clean);
+ assert.equal(result.aiProvenance.status,'CLEAN',JSON.stringify(result.aiProvenance.signals));
+ const chunks=writer.containerPackets(new Uint8Array(await clean.arrayBuffer()));
+ assert.equal(chunks.some(p=>p.type==='caBX'),false);assert.equal(result.rawMetadata.pngChunks?.Title,'Garden');
+ assert.deepEqual(Buffer.concat(chunks.filter(p=>p.type==='IDAT').map(p=>Buffer.from(p.data))),Buffer.concat(packets.filter(p=>p.type==='IDAT').map(p=>Buffer.from(p.data))));
+});
+test('AI labels: WebP C2PA and XMP chunks are removed and the container stays valid',async()=>{
+ const base=Buffer.from(await fixture('webp','image/webp').arrayBuffer()),packets=writer.containerPackets(base);
+ const chunk=(type,data)=>{const out=Buffer.alloc(8+data.length+(data.length%2));out.write(type);out.writeUInt32LE(data.length,4);data.copy(out,8);return out;};
+ const vp8x=packets.find(p=>p.type==='VP8X');if(vp8x)vp8x.packet[8]|=4;
+ let bytes=Buffer.concat([base.subarray(0,12),...packets.map(p=>Buffer.from(p.packet)),chunk('XMP ',Buffer.from(xmpXml(AI_XMP))),chunk('C2PA',c2paStore('Google Imagen','trainedAlgorithmicMedia'))]);bytes.writeUInt32LE(bytes.length-8,4);
+ const source=new Blob([bytes],{type:'image/webp'}),parsed=await parse(source);assert.equal(parsed.aiProvenance.status,'LABELED');
+ const clean=Buffer.from(await (await removeAiMetadataFromBlob(source,parsed.rawMetadata,{level:'ai',keepAttribution:true})).arrayBuffer());
+ assert.equal(clean.readUInt32LE(4),clean.length-8);const chunks=writer.containerPackets(new Uint8Array(clean));
+ assert.equal(chunks.some(p=>p.type==='C2PA'||p.type==='XMP '),false);
+ const flags=chunks.find(p=>p.type==='VP8X');if(flags)assert.equal(flags.data[0]&4,0,'XMP flag cleared');
+ assert.equal((await parse(new Blob([clean],{type:'image/webp'}))).aiProvenance.status,'CLEAN');
+});
+test('AI labels: camera-signed Content Credentials are not AI labels and only the stricter levels remove them',async()=>{
+ const base=Buffer.from(await fixture('jpg','image/jpeg').arrayBuffer());
+ const manifest=c2paStore('Pixel_Camera/1.0 c2pa-rs/0.40','computationalCapture');
+ const app11=appSegment(235,Buffer.concat([Buffer.from('JP'),Buffer.from([0,1]),u32(1),manifest]));
+ const signed=new File([Buffer.concat([base.subarray(0,2),app11,base.subarray(2)])],'pixel.jpg',{type:'image/jpeg'});
+ const parsed=await reader.parseDeepMetadata(signed);assert.equal(parsed.aiProvenance.status,'CLEAN');
+ const keep=Buffer.from(await (await removeAiMetadataFromBlob(signed,parsed.rawMetadata,{level:'ai',keepAttribution:true})).arrayBuffer());
+ assert.ok(keep.includes(Buffer.from('jumdc2pa')),'"AI labels only" keeps camera provenance');
+ const strict=Buffer.from(await (await removeAiMetadataFromBlob(signed,parsed.rawMetadata,{level:'private',keepAttribution:true})).arrayBuffer());
+ assert.equal(strict.includes(Buffer.from('jumdc2pa')),false,'the location & device level removes every manifest');
+});
+// An Ultra HDR JPEG: the gain map is a second JPEG after the primary image, found through the MPF index and the GContainer XMP directory.
+const mpfSegment=(primarySize,offset,size)=>{
+ const t=Buffer.alloc(82);t.write('MM');t.writeUInt16BE(42,2);t.writeUInt32BE(8,4);t.writeUInt16BE(3,8);
+ const tag=(i,id,type,count,value)=>{const p=10+i*12;t.writeUInt16BE(id,p);t.writeUInt16BE(type,p+2);t.writeUInt32BE(count,p+4);if(typeof value==='string')t.write(value,p+8,'latin1');else t.writeUInt32BE(value,p+8);};
+ tag(0,0xb000,7,4,'0100');tag(1,0xb001,4,1,2);tag(2,0xb002,7,32,50);
+ t.writeUInt32BE(0x20030000,50);t.writeUInt32BE(primarySize,54);t.writeUInt32BE(0,58);t.writeUInt32BE(size,70);t.writeUInt32BE(offset,74);
+ return appSegment(226,Buffer.concat([Buffer.from('MPF\0'),t]));
+};
+const mpfImages=bytes=>{
+ const at=bytes.indexOf(Buffer.from('MPF\0'));if(at<0)return null;const tiff=at+4,ifd=tiff+bytes.readUInt32BE(tiff+4);
+ for(let i=0;i<bytes.readUInt16BE(ifd);i++){const e=ifd+2+i*12;if(bytes.readUInt16BE(e)!==0xb002)continue;const table=tiff+bytes.readUInt32BE(e+8);
+  return Array.from({length:bytes.readUInt32BE(e+4)/16},(_,k)=>{const offset=bytes.readUInt32BE(table+k*16+8);return {size:bytes.readUInt32BE(table+k*16+4),start:offset?tiff+offset:0};});}
+ return null;
+};
+const ultraHdrJpeg=async(extraXmp='')=>{
+ const primarySource=Buffer.from(await (await jpegWithExif(exif=>{exif['0th'][piexif.ImageIFD.Make]='Google';exif.GPS[piexif.GPSIFD.GPSLatitudeRef]='N';exif.GPS[piexif.GPSIFD.GPSLatitude]=piexif.GPSHelper.degToDmsRational(51.5);})).arrayBuffer());
+ const base=Buffer.from(await fixture('jpg','image/jpeg').arrayBuffer());
+ const gainMap=Buffer.concat([base.subarray(0,2),appSegment(254,Buffer.from('GAINMAP-UNIQUE-MARKER')),base.subarray(2)]);
+ const xml=`<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:Container="http://ns.google.com/photos/1.0/container/" xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" hdrgm:Version="1.0">${extraXmp}<Container:Directory><rdf:Seq><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li><rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="${gainMap.length}"/></rdf:li></rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>`;
+ const exifEnd=4+((primarySource[4]<<8)|primarySource[5]),xmp=appSegment(225,Buffer.concat([Buffer.from('http://ns.adobe.com/xap/1.0/\0'),Buffer.from(xml)]));
+ const build=(size,offset)=>Buffer.concat([primarySource.subarray(0,exifEnd),xmp,mpfSegment(size,offset,gainMap.length),primarySource.subarray(exifEnd)]);
+ const primarySize=build(0,0).length,tiff=exifEnd+xmp.length+8;
+ return {gainMap,file:new File([build(primarySize,primarySize-tiff),gainMap],'ultrahdr.jpg',{type:'image/jpeg'})};
+};
+const assertGainMapKept=(bytes,gainMap,label)=>{
+ const images=mpfImages(bytes);assert.ok(images,`${label}: MPF index kept`);
+ assert.equal(images[0].size,bytes.length-gainMap.length,`${label}: primary size updated`);
+ assert.deepEqual(bytes.subarray(images[1].start,images[1].start+gainMap.length),gainMap,`${label}: index points at the gain map`);
+ const xmp=bytes.toString('latin1');assert.ok(xmp.includes('hdrgm:Version="1.0"')&&xmp.includes('Item:Semantic="GainMap"'),`${label}: Ultra HDR XMP kept`);
+};
+test('Ultra HDR gain maps survive tag edits and AI label removal, with the MPF index updated',async()=>{
+ const {gainMap,file}=await ultraHdrJpeg('<Iptc4xmpExt:DigitalSourceType>http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia</Iptc4xmpExt:DigitalSourceType>');
+ assertGainMapKept(Buffer.from(await file.arrayBuffer()),gainMap,'fixture');
+ const titled=await writer.writeMetadataToBlob(file,{iptc:{Headline:'HDR title'},exif:{Artist:'Ana'}},{section:'exif',key:'Artist',value:'Ana'});
+ assertGainMapKept(Buffer.from(await titled.arrayBuffer()),gainMap,'tag edit');
+ const parsedTitled=await parse(titled);assert.equal(parsedTitled.seoData.title,'HDR title');assert.equal(parsedTitled.rawMetadata.exif.Artist,'Ana');assert.equal(parsedTitled.privacyReport.inspectionWarning,undefined);
+ const parsed=await reader.parseDeepMetadata(file);assert.equal(parsed.aiProvenance.status,'LABELED');
+ const clean=await removeAiMetadataFromBlob(file,parsed.rawMetadata,{level:'ai',keepAttribution:true});
+ assertGainMapKept(Buffer.from(await clean.arrayBuffer()),gainMap,'AI labels only');assert.equal((await parse(clean)).aiProvenance.status,'CLEAN');
+});
+test('Privacy cleaning drops secondary images and their index, which can carry their own metadata',async()=>{
+ const {gainMap,file}=await ultraHdrJpeg();const parsed=await reader.parseDeepMetadata(file);
+ const results={private:await removeAiMetadataFromBlob(file,parsed.rawMetadata,{level:'private',keepAttribution:true}),all:await writer.stripAllMetadataFromBlob(file),gps:await writer.stripGpsFromBlob(file)};
+ store.getState().clearFiles();await store.getState().addFiles([file]);assert.equal(await store.getState().stripGps(store.getState().files[0].id),true);results.store=store.getState().files[0].modifiedBlob;
+ for(const [label,blob] of Object.entries(results)){
+  const bytes=Buffer.from(await blob.arrayBuffer());
+  assert.equal(mpfImages(bytes),null,`${label}: index removed`);assert.equal(bytes.includes(Buffer.from('GAINMAP-UNIQUE-MARKER')),false,`${label}: gain map removed`);
+  assert.ok(gainMap.includes(Buffer.from('GAINMAP-UNIQUE-MARKER')));
+ }
+ assert.equal(store.getState().files[0].privacyReport.hasGps,false);
+});
+test('Strip GPS keeps titles, keywords and camera data in JPEG',async()=>{
+ store.getState().clearFiles();
+ const titled=await writer.writeMetadataToBlob(gpsFile,{iptc:{Headline:'Harbour',Keywords:['boats']},xmp:{City:'Hobart',GPSLatitude:0}});
+ await store.getState().addFiles([new File([titled],'titled.jpg',{type:'image/jpeg'})]);const id=store.getState().files[0].id;
+ assert.equal(store.getState().files[0].privacyReport.hasGps,true);
+ assert.equal(await store.getState().stripGps(id),true);const file=store.getState().files[0];
+ assert.equal(file.privacyReport.hasGps,false);assert.equal(file.seoData.title,'Harbour');assert.deepEqual(file.seoData.keywords,['boats']);assert.equal(file.rawMetadata.exif.Make,'Sony');assert.equal(file.rawMetadata.xmp?.City,undefined);
+ const native=piexif.load(Buffer.from(await file.modifiedBlob.arrayBuffer()).toString('binary'));assert.deepEqual(native.GPS,{});
+});
+test('Batch AI label removal cleans only labelled images, verifies them and records history',async()=>{
+ store.getState().clearFiles();await store.getState().addFiles([await aiLabeledJpeg(),fixture('png','image/png')]);
+ store.getState().setAiCleanOptions({level:'ai'});
+ assert.equal(await store.getState().batchRemoveAiLabels(),true);
+ const job=store.getState().batchJobs[0];assert.equal(job.type,'REMOVE_AI');assert.equal(job.total,1);assert.equal(job.status,'COMPLETED');
+ const [labeled]=store.getState().files;assert.equal(labeled.aiProvenance.status,'CLEAN');assert.equal(labeled.history[0].action,'AI Label Removal');assert.ok(labeled.history[0].previousBlob);
+ assert.equal(await store.getState().batchRemoveAiLabels(),true,'nothing left to clean is not an error');
+ await store.getState().restoreHistory(labeled.id,labeled.history[0].id);assert.equal(store.getState().files[0].aiProvenance.status,'LABELED');
+ store.getState().setAiCleanOptions({level:'nonsense'});assert.equal(store.getState().aiCleanLevel,'ai');
+});
+
 (async()=>{let failures=0;for(const {name,run} of tests){try{await run();console.log(`PASS ${name}`);}catch(e){failures++;console.error(`FAIL ${name}\n${e.stack}`);}}console.log(`${tests.length-failures}/${tests.length} passed`);process.exit(failures?1:0);})();

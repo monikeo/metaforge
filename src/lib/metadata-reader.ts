@@ -1,6 +1,7 @@
 import exifr from 'exifr';
 import { AiWorkflowInfo, MetaFile } from './types';
 import { analyzePrivacyRisks } from './privacy-rules';
+import { scanAiProvenance } from './ai-provenance';
 import { imageFormat, containerPackets, readEmbeddedSnapshot, readNativeUserComment, firstText, textList, MIRRORED_SNAPSHOT_FIELDS } from './metadata-writer';
 
 const pngWarnings = new WeakMap<Blob, string>();
@@ -349,6 +350,8 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
 
   // Detect AI workflow
   const aiWorkflow = detectAiWorkflow(rawMetadata, pngChunks);
+  // AI labels and provenance: C2PA manifests, IPTC source types, prompts, generator names.
+  const aiProvenance = scanAiProvenance(new Uint8Array(buffer), rawMetadata);
 
   // Detect Privacy risks
   const privacyReport = analyzePrivacyRisks(rawMetadata, nativeMetadata);
@@ -393,6 +396,7 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
     thumbnailUrl,
     rawMetadata,
     aiWorkflow,
+    aiProvenance,
     seoData,
     privacyReport,
     rawHexSample: hexSample,

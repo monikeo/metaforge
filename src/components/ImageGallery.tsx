@@ -15,7 +15,8 @@ import {
   CheckSquare, 
   Square,
   Layers,
-  Download
+  Download,
+  ScanEye
 } from 'lucide-react';
 import BatchActionsModal from './Batch/BatchActionsModal';
 import ConfirmDialog from './ConfirmDialog';
@@ -49,8 +50,10 @@ export default function ImageGallery({ fill = false }: { fill?: boolean }) {
       (f.seoData?.title?.toLowerCase().includes(query) ?? false) ||
       (f.seoData?.keywords?.some((keyword) => keyword.toLowerCase().includes(query)) ?? false);
     if (!matchesSearch) return false;
+    if (filterOptions.aiStatus === 'AI_LABEL' && f.aiProvenance.status !== 'LABELED') return false;
+    if (filterOptions.aiStatus === 'AI_ANY' && f.aiProvenance.status === 'CLEAN' && !f.aiWorkflow.detected) return false;
     if (filterOptions.aiStatus === 'AI_DETECTED' && !f.aiWorkflow.detected) return false;
-    if (filterOptions.aiStatus === 'NO_AI' && f.aiWorkflow.detected) return false;
+    if (filterOptions.aiStatus === 'NO_AI' && (f.aiWorkflow.detected || f.aiProvenance.status !== 'CLEAN')) return false;
 
     // Format (by detected MIME type: filenames are normalized, so extensions are not reliable)
     if (filterOptions.format !== 'ALL' && f.type !== filterOptions.format) return false;
@@ -152,16 +155,18 @@ export default function ImageGallery({ fill = false }: { fill?: boolean }) {
             </div>
 
             <div>
-              <span className="text-neutral-500 block mb-1">AI Workflow</span>
+              <span className="text-neutral-500 block mb-1">AI Metadata</span>
               <select
-                aria-label="AI workflow filter"
+                aria-label="AI metadata filter"
                 value={filterOptions.aiStatus}
                 onChange={(e) => setFilterOptions({ aiStatus: e.target.value })}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-neutral-300 min-h-[36px] sm:min-h-0"
               >
                 <option value="ALL">Any</option>
+                <option value="AI_LABEL">AI label signals</option>
+                <option value="AI_ANY">Any AI metadata</option>
                 <option value="AI_DETECTED">AI workflow detected</option>
-                <option value="NO_AI">No AI workflow</option>
+                <option value="NO_AI">No AI metadata</option>
               </select>
             </div>
 
@@ -293,6 +298,11 @@ export default function ImageGallery({ fill = false }: { fill?: boolean }) {
                   {hasGps && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
                       <MapPin className="w-2.5 h-2.5" /> GPS
+                    </span>
+                  )}
+                  {file.aiProvenance.status === 'LABELED' && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[9px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30" title="Carries C2PA or IPTC AI label metadata">
+                      <ScanEye className="w-2.5 h-2.5" /> AI label
                     </span>
                   )}
                   {isAi && (

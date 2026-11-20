@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   Download,
   Trash2,
-  Square
+  Square,
+  Eraser
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<BatchJob['status'], { badge: string; bar: string; icon: string }> = {
@@ -22,8 +23,8 @@ const STATUS_STYLES: Record<BatchJob['status'], { badge: string; bar: string; ic
 };
 
 export default function BatchJobsView() {
-  const { files, stripAllGps, batchSanitizeForSocial, exportAllZip, batchJobs: jobs, clearCompletedJobs, cancelBatch, isProcessing } =
-    useMetaForge('files', 'stripAllGps', 'batchSanitizeForSocial', 'exportAllZip', 'batchJobs', 'clearCompletedJobs', 'cancelBatch', 'isProcessing');
+  const { files, stripAllGps, batchSanitizeForSocial, batchRemoveAiLabels, exportAllZip, batchJobs: jobs, clearCompletedJobs, cancelBatch, isProcessing } =
+    useMetaForge('files', 'stripAllGps', 'batchSanitizeForSocial', 'batchRemoveAiLabels', 'exportAllZip', 'batchJobs', 'clearCompletedJobs', 'cancelBatch', 'isProcessing');
 
   return (
     <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
@@ -56,6 +57,15 @@ export default function BatchJobsView() {
           >
             <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
             Social Sanitize
+          </button>
+
+          <button
+            disabled={isProcessing || files.length === 0}
+            onClick={() => { void batchRemoveAiLabels(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 sm:min-w-0 cursor-pointer shadow-xs"
+          >
+            <Eraser className="w-3.5 h-3.5 text-purple-400" />
+            Remove AI Labels
           </button>
 
           <button

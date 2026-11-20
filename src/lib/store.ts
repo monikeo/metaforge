@@ -8,10 +8,12 @@ import {
   MetadataPreset,
   BatchJob,
   ToastMessage,
-  MetadataHistoryItem
+  MetadataHistoryItem,
+  AiCleanLevel
 } from './types';
 import { parseDeepMetadata, seoFromRaw } from './metadata-reader';
-import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, isExifDateTag, normalizeExifDate, type NativeEdit } from './metadata-writer';
+import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, rewriteNativeExif, isExifDateTag, normalizeExifDate, type NativeEdit } from './metadata-writer';
+import { clearNativeLocation, removeAiMetadataFromBlob, withoutLocation } from './metadata-cleaner';
 import { analyzePrivacyRisks } from './privacy-rules';
 import { workspaceHref, workspaceView } from './navigation';
 import { DEFAULT_GEMINI_MODEL, normalizeGeminiModel } from './ai-models';
@@ -75,6 +77,7 @@ const DEFAULT_PRESETS: MetadataPreset[] = [
   }
 ];
 export const BUILT_IN_PRESET_IDS = DEFAULT_PRESETS.map((preset) => preset.id);
+const AI_CLEAN_LEVELS: AiCleanLevel[] = ['ai', 'private', 'all'];
 /** Import limits, shown in the sidebar and enforced when adding files. */
 export const QUEUE_LIMITS = { files: 500, bytes: 256 * 1024 * 1024 } as const;
 
@@ -158,6 +161,14 @@ export interface MetaForgeState {
   applyAiSeo: (fileId: string, seo: SeoMetadata, actor?: 'User' | 'AI') => void;
   writeSeoToMetadata: (fileId: string) => Promise<boolean>;
   batchGenerateSeo: (fileIds: string[], options?: { save?: boolean; skipComplete?: boolean }) => Promise<boolean>;
+
+  // AI label removal
+  aiCleanLevel: AiCleanLevel;
+  aiKeepAttribution: boolean;
+  setAiCleanOptions: (options: { level?: AiCleanLevel; keepAttribution?: boolean }) => void;
+  removeAiLabels: (fileId: string) => Promise<boolean>;
+  /** Without ids: every image that needs it (images with AI metadata for the "ai" level, all images otherwise). */
+  batchRemoveAiLabels: (fileIds?: string[]) => Promise<boolean>;
 
   // Presets & Batch
   applyPreset: (presetId: string, targetFileIds: string[]) => Promise<boolean>;
@@ -370,6 +381,14 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     } finally { URL.revokeObjectURL(cleaned.thumbnailUrl); }
   };
   const removeGps = async (file: MetaFile) => {
+    // Remove only the location: native GPS (with the MakerNotes and thumbnail that can repeat it) and location fields in
+    // XMP and IPTC. Titles, captions, keywords, and copyright stay.
+    try {
+      // Secondary JPEG images (camera previews, gain maps) can hold their own GPS, so they are not kept here.
+      const located = await fromBlob(file, await writeMetadataToBlob(await rewriteNativeExif(blobOf(file), clearNativeLocation), withoutLocation(file.rawMetadata), [], { keepSecondaryImages: false }));
+      if (!located.privacyReport.hasGps && !located.privacyReport.inspectionWarning) return located;
+      URL.revokeObjectURL(located.thumbnailUrl);
+    } catch { /* Formats that cannot be rewritten in place fall back to the cleaning below. */ }
     const cleaned = await fromBlob(file, await stripGpsFromBlob(blobOf(file)));
     if (!cleaned.privacyReport.hasGps) return cleaned;
     URL.revokeObjectURL(cleaned.thumbnailUrl);
@@ -388,11 +407,26 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     const raw = scrub(file.rawMetadata);
     delete raw.pngChunks;
     const keys = new Set([...Object.keys(file.rawMetadata.exif || {}).filter(sensitive), 'BodySerialNumber', 'LensSerialNumber', 'CameraSerialNumber', 'CameraOwnerName', 'MakerNote', 'ImageUniqueID']);
-    const blob = await writeMetadataToBlob(blobOf(file), raw, [...keys].map((key) => ({ section: 'exif', key, remove: true })));
+    // Secondary JPEG images can repeat the serial numbers in their own EXIF, so they are not kept here.
+    const blob = await writeMetadataToBlob(blobOf(file), raw, [...keys].map((key) => ({ section: 'exif', key, remove: true })), { keepSecondaryImages: false });
     const result = await fromBlob(file, blob);
     if (result.privacyReport.hasDeviceSerial || result.privacyReport.inspectionWarning) {
       URL.revokeObjectURL(result.thumbnailUrl);
       throw new Error('Some device identifiers could not be removed safely. Use full social sanitization for this image.');
+    }
+    return result;
+  };
+  const removeAi = async (file: MetaFile) => {
+    const { aiCleanLevel: level, aiKeepAttribution: keepAttribution } = get();
+    const result = await fromBlob(file, await removeAiMetadataFromBlob(blobOf(file), file.rawMetadata, { level, keepAttribution }));
+    // The cleaned file is parsed again, so this checks the bytes that will be downloaded.
+    const remaining = result.aiProvenance.signals;
+    const leaks = [level !== 'ai' && result.privacyReport.hasGps && 'location', level === 'private' && result.privacyReport.hasDeviceSerial && 'device identifiers'].filter(Boolean);
+    if (remaining.length || leaks.length) {
+      URL.revokeObjectURL(result.thumbnailUrl);
+      throw new Error(remaining.length
+        ? `${remaining.length} AI marker(s) could not be removed safely (${remaining.slice(0, 2).map((signal) => signal.label).join(', ')}). Use the Everything level for this image.`
+        : `Some ${leaks.join(' and ')} could not be removed safely. Use the Everything level for this image.`);
     }
     return result;
   };
@@ -410,7 +444,7 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     try { saveAs(new Blob([content], { type }), name); }
     catch (error) { notify('Export Failed', error); }
   };
-  const jsonRecord = (file: MetaFile) => ({ file: { name: file.name, size: file.size, type: file.type, width: file.width, height: file.height, lastModified: file.lastModified }, rawMetadata: file.rawMetadata, seoMetadata: file.seoData, privacyReport: file.privacyReport, aiWorkflow: file.aiWorkflow });
+  const jsonRecord = (file: MetaFile) => ({ file: { name: file.name, size: file.size, type: file.type, width: file.width, height: file.height, lastModified: file.lastModified }, rawMetadata: file.rawMetadata, seoMetadata: file.seoData, privacyReport: file.privacyReport, aiWorkflow: file.aiWorkflow, aiProvenance: file.aiProvenance });
   const stopAiBatch = () => { if (activeBatch?.type === 'AI_SEO') get().cancelBatch(); };
   return {
     currentView: 'studio', setCurrentView: (view) => {
@@ -516,6 +550,23 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
         return { ...written, seoData: { ...written.seoData, privacyFlags: result.privacyFlags } };
       }, 'AI', isFatalAiError);
     },
+    aiCleanLevel: 'ai', aiKeepAttribution: true,
+    setAiCleanOptions: ({ level, keepAttribution }) => set((state) => ({
+      aiCleanLevel: level && AI_CLEAN_LEVELS.includes(level) ? level : state.aiCleanLevel,
+      aiKeepAttribution: typeof keepAttribution === 'boolean' ? keepAttribution : state.aiKeepAttribution
+    })),
+    removeAiLabels: (id) => mutate(id, 'AI Labels Removed', removeAi),
+    batchRemoveAiLabels: (ids) => {
+      const { files, aiCleanLevel } = get();
+      const candidates = ids?.length ? files.filter((file) => ids.includes(file.id)) : files;
+      // The "ai" level only changes images that carry AI metadata. The other levels clean every image.
+      const targets = candidates.filter((file) => aiCleanLevel !== 'ai' || file.aiProvenance.status !== 'CLEAN').map((file) => file.id);
+      if (!targets.length) {
+        get().addToast({ type: 'info', title: candidates.length ? 'No AI Labels Found' : 'No Images', description: candidates.length ? 'None of these images carry AI labels or AI metadata.' : 'Import images first.' });
+        return Promise.resolve(Boolean(candidates.length));
+      }
+      return batch('AI Label Removal', 'REMOVE_AI', targets, removeAi);
+    },
     applyPreset: (presetId, ids) => batch('Preset Applied', 'APPLY_PRESET', ids, async (file, index) => {
       const found = get().presets.find((p) => p.id === presetId); if (!found) throw new Error('Preset no longer exists.');
       const preset = validatePreset(found);
@@ -599,7 +650,7 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
   };
 }, {
   name: 'metaforge_storage_v2', storage: persistedStorage, skipHydration: true,
-  partialize: (state) => ({ aiEnabled: state.aiEnabled, geminiApiKey: state.geminiApiKey, selectedModel: state.selectedModel, presets: state.presets }),
+  partialize: (state) => ({ aiEnabled: state.aiEnabled, geminiApiKey: state.geminiApiKey, selectedModel: state.selectedModel, presets: state.presets, aiCleanLevel: state.aiCleanLevel, aiKeepAttribution: state.aiKeepAttribution }),
   merge: (persisted, current) => {
     const saved = persisted && typeof persisted === 'object' ? persisted as Partial<MetaForgeState> : {};
     const presets: MetadataPreset[] = [];
@@ -608,7 +659,11 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     }
     const geminiApiKey = typeof saved.geminiApiKey === 'string' ? saved.geminiApiKey.trim() : '';
     const selectedModel = normalizeGeminiModel(saved.selectedModel);
-    return { ...current, presets, aiEnabled: saved.aiEnabled === true, geminiApiKey, selectedModel: !geminiApiKey && selectedModel.startsWith('gemini-2.5-') ? DEFAULT_GEMINI_MODEL : selectedModel };
+    return {
+      ...current, presets, aiEnabled: saved.aiEnabled === true, geminiApiKey, selectedModel: !geminiApiKey && selectedModel.startsWith('gemini-2.5-') ? DEFAULT_GEMINI_MODEL : selectedModel,
+      aiCleanLevel: AI_CLEAN_LEVELS.includes(saved.aiCleanLevel as AiCleanLevel) ? saved.aiCleanLevel as AiCleanLevel : current.aiCleanLevel,
+      aiKeepAttribution: typeof saved.aiKeepAttribution === 'boolean' ? saved.aiKeepAttribution : current.aiKeepAttribution
+    };
   }
 }));
 
