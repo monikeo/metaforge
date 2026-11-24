@@ -5,6 +5,7 @@ import { copyText } from '@/lib/clipboard';
 
 import React from 'react';
 import { useMetaForge } from '@/lib/store';
+import AiLabelSummary from '@/components/AiLabels/AiLabelSummary';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -94,6 +95,9 @@ export default function PrivacyAuditor({ fileId }: PrivacyAuditorProps) {
           style={{ width: `${Math.max(report.score, isClean ? 100 : 5)}%` }}
         />
       </div>
+
+      {/* AI labels and provenance */}
+      <AiLabelSummary file={file} />
 
       {/* Issues List */}
       <div className="flex flex-col gap-2">

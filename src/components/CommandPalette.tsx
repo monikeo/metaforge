@@ -19,15 +19,18 @@ import {
   Image as ImageIcon,
   FileCode,
   FileSpreadsheet,
-  Sparkles
+  Sparkles,
+  ScanEye,
+  Eraser,
+  FileArchive
 } from 'lucide-react';
 
 export default function CommandPalette() {
   const {
     isCommandPaletteOpen, setIsCommandPaletteOpen, files, selectedFileIds, setCurrentView, setActiveFile, stripAllGps,
-    batchSanitizeForSocial, exportAllZip, exportAllMetadataJson, exportMetadataCsv, batchGenerateSeo, setIsAiSettingsOpen, aiEnabled, geminiApiKey
+    batchSanitizeForSocial, exportAllZip, exportAllMetadataJson, exportMetadataCsv, batchGenerateSeo, setIsAiSettingsOpen, aiEnabled, geminiApiKey, batchRemoveAiLabels
   } = useMetaForge('isCommandPaletteOpen', 'setIsCommandPaletteOpen', 'files', 'selectedFileIds', 'setCurrentView', 'setActiveFile', 'stripAllGps',
-    'batchSanitizeForSocial', 'exportAllZip', 'exportAllMetadataJson', 'exportMetadataCsv', 'batchGenerateSeo', 'setIsAiSettingsOpen', 'aiEnabled', 'geminiApiKey');
+    'batchSanitizeForSocial', 'exportAllZip', 'exportAllMetadataJson', 'exportMetadataCsv', 'batchGenerateSeo', 'setIsAiSettingsOpen', 'aiEnabled', 'geminiApiKey', 'batchRemoveAiLabels');
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -75,6 +78,13 @@ export default function CommandPalette() {
       action: () => setCurrentView('dashboard')
     },
     {
+      id: 'cmd-ai-labels',
+      title: 'AI Label Remover',
+      category: 'Tools',
+      icon: ScanEye,
+      action: () => setCurrentView('ai-labels')
+    },
+    {
       id: 'cmd-compare',
       title: 'Side-by-Side Metadata Compare',
       category: 'Tools',
@@ -108,6 +118,24 @@ export default function CommandPalette() {
       category: 'Actions',
       icon: ShieldCheck,
       action: () => batchSanitizeForSocial()
+    },
+    {
+      id: 'cmd-remove-ai',
+      title: `Batch Action: Remove AI Labels & Metadata from ${selectedFileIds.length ? `${selectedFileIds.length} Selected` : 'All'} Images`,
+      category: 'Actions',
+      icon: Eraser,
+      action: () => { void batchRemoveAiLabels(selectedFileIds.length ? selectedFileIds : undefined); }
+    },
+    {
+      id: 'cmd-clean-zip',
+      title: 'Clean a ZIP Archive of AI Labels & Metadata',
+      category: 'Tools',
+      icon: FileArchive,
+      action: () => {
+        setCurrentView('ai-labels');
+        // Opens the picker while this key press or click still counts as user activation; the page shows the ZIP area either way.
+        setTimeout(() => document.querySelector<HTMLInputElement>('input[aria-label="Choose ZIP archives"]')?.click(), 100);
+      }
     },
     {
       id: 'cmd-export-zip',

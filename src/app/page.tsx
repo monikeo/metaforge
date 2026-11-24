@@ -22,6 +22,7 @@ import DashboardView from '@/components/Dashboard/DashboardView';
 import MetadataCompareView from '@/components/Compare/MetadataCompareView';
 import PresetsView from '@/components/Presets/PresetsView';
 import BatchJobsView from '@/components/Jobs/BatchJobsView';
+import AiLabelRemoverView from '@/components/AiLabels/AiLabelRemoverView';
 import { useMetaForge } from '@/lib/store';
 import { useLayoutMode } from '@/lib/use-layout-mode';
 import { filesFromDataTransfer, importImageFiles, isImageFile, namePastedImages } from '@/lib/import-files';
@@ -44,14 +45,15 @@ import {
   Globe,
   Tag,
   Images,
-  ChevronRight
+  ChevronRight,
+  ScanEye
 } from 'lucide-react';
 
-const VIEW_TITLES: Record<string, string> = { studio: 'Studio', dashboard: 'Dashboard', compare: 'Compare', presets: 'Presets', jobs: 'Batch Queue' };
+const VIEW_TITLES: Record<string, string> = { studio: 'Studio', dashboard: 'Dashboard', 'ai-labels': 'AI Label Remover', compare: 'Compare', presets: 'Presets', jobs: 'Batch Queue' };
 
 export default function MetaForgeStudio() {
-  const { files, currentView, activeFileId, setActiveFile, activeTab, setActiveTab } =
-    useMetaForge('files', 'currentView', 'activeFileId', 'setActiveFile', 'activeTab', 'setActiveTab');
+  const { files, currentView, setCurrentView, activeFileId, setActiveFile, activeTab, setActiveTab } =
+    useMetaForge('files', 'currentView', 'setCurrentView', 'activeFileId', 'setActiveFile', 'activeTab', 'setActiveTab');
   const layout = useLayoutMode();
 
   // Mobile dedicated section switcher (< 768px)
@@ -195,6 +197,13 @@ export default function MetaForgeStudio() {
               </ErrorBoundary>
             </div>
           )}
+          {currentView === 'ai-labels' && (
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <ErrorBoundary fallbackTitle="AI Label Remover">
+                <AiLabelRemoverView />
+              </ErrorBoundary>
+            </div>
+          )}
           {currentView === 'compare' && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ErrorBoundary fallbackTitle="Metadata Comparator Studio">
@@ -258,7 +267,23 @@ export default function MetaForgeStudio() {
                 </div>
 
                 {/* Feature Highlights Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 mb-auto w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-6 sm:mt-8 mb-auto w-full">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('ai-labels')}
+                    className="p-4 rounded-2xl bg-neutral-900/50 hover:bg-neutral-900 border border-neutral-800/80 hover:border-purple-500/40 flex flex-col gap-2 text-left transition group"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                      <ScanEye className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      AI Label Remover <ChevronRight className="w-3.5 h-3.5 text-neutral-500 group-hover:translate-x-0.5 transition" aria-hidden="true" />
+                    </h3>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed">
+                      Remove Content Credentials, the IPTC AI source type, prompts and AI tool names that trigger “AI info” labels, without re-encoding.
+                    </p>
+                  </button>
+
                   <div className="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/80 flex flex-col gap-2">
                     <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
                       <ShieldAlert className="w-4 h-4" />

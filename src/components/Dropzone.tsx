@@ -82,7 +82,7 @@ export default function Dropzone() {
         type="file"
         multiple
         aria-label="Choose image files"
-        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff,image/heic,image/heif,image/gif,.heic,.heif"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/tiff,image/heic,image/heif,image/gif,.heic,.heif,.zip,application/zip,application/x-zip-compressed"
         onChange={(e) => { void importImageFiles(Array.from(e.target.files || [])); e.target.value = ''; }}
         className="sr-only"
       />
@@ -94,7 +94,7 @@ export default function Dropzone() {
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-xs font-bold text-white">Add more images</span>
-            <span className="text-[11px] text-neutral-400 leading-snug">Browse, drop images or folders, or paste</span>
+            <span className="text-[11px] text-neutral-400 leading-snug">Browse, drop images, folders or ZIPs, or paste</span>
           </div>
         </div>
       ) : (
@@ -104,7 +104,7 @@ export default function Dropzone() {
           </div>
 
           <h3 className="text-sm font-bold text-white tracking-wide">
-            Drop images or folders here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
+            Drop images, folders or ZIP files here, or <span className="text-purple-400 underline underline-offset-2">browse files</span>
           </h3>
           <p className="text-xs text-neutral-400 mt-1">
             JPEG, PNG, WebP, AVIF, HEIC, TIFF, GIF • 100 MB per image • Paste with Ctrl/⌘+V

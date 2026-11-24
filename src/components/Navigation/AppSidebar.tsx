@@ -21,7 +21,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  ChevronLeft
+  ChevronLeft,
+  ScanEye
 } from 'lucide-react';
 
 export default function AppSidebar() {
@@ -33,9 +34,11 @@ export default function AppSidebar() {
   const queueUsed = Math.min(100, Math.round((queueBytes / QUEUE_LIMITS.bytes) * 100));
   const [isTabletCollapsed, setIsTabletCollapsed] = useState(true);
 
+  const aiFlagged = files.filter((file) => file.aiProvenance.status !== 'CLEAN').length;
   const navItems: { id: AppView; label: string; icon: any; count?: number }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'studio', label: 'Studio Workstation', icon: Layers, count: files.length },
+    { id: 'ai-labels', label: 'AI Label Remover', icon: ScanEye, count: aiFlagged },
     { id: 'compare', label: 'Metadata Compare', icon: GitCompare },
     { id: 'presets', label: 'Presets Manager', icon: Sliders },
     { id: 'jobs', label: 'Batch Processing', icon: Cpu }
@@ -290,6 +293,17 @@ export default function AppSidebar() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
+              <Link href={workspaceHref('ai-labels')}
+                prefetch={false}
+                onNavigate={(event) => { event.preventDefault(); setCurrentView('ai-labels'); }}
+                onClick={() => setIsMobileMoreOpen(false)}
+                className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 text-left flex flex-col gap-1.5 touch-target"
+              >
+                <ScanEye className="w-5 h-5 text-purple-400" />
+                <span className="font-semibold text-white">AI Label Remover</span>
+                <span className="text-[10px] text-neutral-400">{aiFlagged ? `${aiFlagged} image(s) with AI metadata` : 'Remove AI labels & metadata'}</span>
+              </Link>
+
               <Link href={workspaceHref('jobs')}
                 prefetch={false}
                 onNavigate={(event) => { event.preventDefault(); setCurrentView('jobs'); }}

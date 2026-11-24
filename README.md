@@ -24,7 +24,7 @@ npm run build
 npm audit
 ```
 
-The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, immutable history, concurrent edits, batch results and cancellation, presets, filenames, sitemap validation, EXIF date and UTF-8 encoding, snapshot integrity against edits made by other tools, AI batch generation with a mocked Gemini client, and CSV/JSON export escaping. Browser decoding is verified separately from the test suite's Image stub.
+The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, AI label detection and removal (C2PA, IPTC source types, prompts) with unchanged pixel data and no false positives on look-alike words, Ultra HDR gain maps and MPF indexes across edits, lossless GIF cleaning, ZIP archive cleaning (folders, names, dates, nested archives, sidecar and system files, fallback stripping, decompression-bomb and forged-size limits, encrypted and invalid archives), immutable history, concurrent edits, batch results and cancellation, presets, filenames, sitemap validation, EXIF date and UTF-8 encoding, snapshot integrity against edits made by other tools, AI batch generation with a mocked Gemini client, and CSV/JSON export escaping. Browser decoding is verified separately from the test suite's Image stub.
 
 For browser QA, install Firefox through the included Playwright dependency, start the production app on port 3100, and run:
 
@@ -48,10 +48,48 @@ Development and production builds use Webpack because Turbopack repeatedly faile
 
 ## Working with images
 
-- **Import:** choose files, drop images or whole folders onto the page, or paste a copied image or screenshot (Ctrl/⌘+V). Dropping a file anywhere in the studio imports it rather than navigating away from your session.
+- **Import:** choose files, drop images, whole folders or ZIP archives onto the page, or paste a copied image or screenshot (Ctrl/⌘+V). Dropping a file anywhere in the studio imports it rather than navigating away from your session. The images inside a ZIP (and ZIPs inside it) join the queue; on the AI Label Remover page a dropped ZIP is cleaned into a new archive instead. Unsupported files (SVG, BMP, documents) are skipped up front and reported, and an unreadable file in a dropped folder no longer cancels the rest of the drop.
 - **Batch jobs:** GPS removal, sanitizing, presets, bulk edits, renames, and AI SEO run one image at a time. A running job can be cancelled from the header or the Batch Processing view; images already processed keep their changes.
 - **AI SEO in bulk:** with a Gemini key configured, *Batch Edit → AI SEO* (or the command menu) generates a title, caption, alt text, and keywords for selected images. It can skip images that are already complete and either save results into the files or keep them as drafts. Key, permission, and quota errors stop the job instead of failing every remaining image.
-- **Exports:** single images, a ZIP of all or selected images, a JSON catalog, and a CSV spreadsheet (titles, captions, keywords, attribution, camera data, GPS, and privacy findings). CSV cells that start with formula characters are prefixed so spreadsheets do not execute them.
+- **Exports:** single images, a ZIP of all or selected images, a JSON catalog, and a CSV spreadsheet (titles, captions, keywords, attribution, camera data, GPS, privacy findings, and AI label findings). CSV cells that start with formula characters are prefixed so spreadsheets do not execute them.
+
+## AI Label Remover
+
+The **AI Label Remover** workspace (sidebar, mobile *More* sheet, command menu, or *Remove AI labels* in the Studio's privacy panel) finds and removes the metadata that platforms such as Instagram, Facebook, Threads, TikTok, and LinkedIn read to show "AI info" labels, plus the AI traces other tools leave behind.
+
+Every import is scanned for:
+
+| Signal | Where it is stored | Read by platforms for labels |
+| --- | --- | --- |
+| C2PA Content Credentials that declare AI (an AI digital source type anywhere in the manifest store, or an AI tool as claim generator) | JPEG APP11 JUMBF (including manifests split across packets), PNG `caBX`, WebP `C2PA`, or a byte search in other containers | Yes |
+| IPTC digital source type (`trainedAlgorithmicMedia`, `compositeWithTrainedAlgorithmicMedia`, `algorithmicMedia`, …) | XMP | Yes |
+| IPTC AI fields (`AISystemUsed`, `AIPromptInformation`, …) and the Chinese AIGC implicit label | XMP | Yes |
+| Prompts, parameters, and workflow graphs (Stable Diffusion, ComfyUI, InvokeAI, NovelAI, Fooocus, Midjourney job text) | PNG text chunks, EXIF `UserComment` and descriptions, XMP | No |
+| AI tool names (Firefly, DALL·E, Midjourney, Imagen, …), AI steps in edit history, AI keywords, and "AI-generated" text | EXIF software fields, XMP `CreatorTool` and `History`, keywords, JPEG comments | No |
+
+Ambiguous words (for example *Firefly*, *Gemini*, *Flux*, or *Runway*) only count in software fields, so a photographer called "Firefly Studio" or a caption about a fashion runway is not flagged. Non-AI source types such as `digitalCapture` and `computationalCapture` are kept, and so are Content Credentials that cameras and phones add to ordinary photos.
+
+Three cleaning levels are available; the choice is remembered in this browser:
+
+- **AI labels only:** removes the signals above (and the XMP `dcterms:provenance` pointer to a removed manifest) and keeps camera data, location, copyright, SEO fields, and camera-signed Content Credentials. JPEG scan data, PNG `IDAT`, and WebP frames are copied unchanged.
+- **AI labels + location & device:** also removes all Content Credentials, GPS and place names, serial numbers, owner, host computer, software, XMP document IDs, MakerNotes, and thumbnails.
+- **Everything:** removes all metadata but keeps the ICC colour profile and orientation (no re-encoding), and optionally the creator and copyright, unless those name an AI tool.
+
+After cleaning, the new file is parsed and scanned again. If any marker (or, for the location level, GPS or a device identifier) remains, the image is left unchanged and the job reports why. Each change is recorded in the image history and can be restored. HEIC, AVIF, and TIFF are converted to PNG. GIF is cleaned block by block: comments, XMP, and other application blocks that carry AI markers are removed (all of them at the stricter levels), while frames, timing, transparency, looping, and the colour profile are copied unchanged.
+
+### ZIP archives
+
+*Clean a ZIP archive* on the same page takes a `.zip` (drop it, choose it, or use *Clean a ZIP Archive* in the command menu) and downloads a cleaned copy named `<name>-clean.zip` with the same folders, file names, and file dates. It uses the selected cleaning level and does not touch the image queue, so archives with thousands of images work.
+
+- Every image is identified by its content, not its extension, cleaned, and scanned again. Only verified results go into the new archive. Images without AI metadata (at *AI labels only*) are copied byte for byte.
+- **Strip fully when a marker remains** (on by default): if the chosen level leaves a marker behind (for example AI metadata inside an Ultra HDR gain map, which *AI labels only* keeps), that image's metadata is removed entirely, losslessly. With the option off, or if even that fails (a damaged image), the file is left out of the archive and listed with the reason.
+- **Remove AI sidecar files** (on by default): prompt, caption, workflow, and XMP files next to an image (`photo.txt`, `photo.json`, `photo.png.xmp`) are left out when they carry AI metadata; at *Everything*, XMP sidecars are always left out. Other documents are kept unchanged; the report notes those that mention AI.
+- **Remove system files** (on by default): `__MACOSX` folders, AppleDouble `._` files, `.DS_Store`, `Thumbs.db`, and `desktop.ini`. AppleDouble files can carry the address a file was downloaded from.
+- Nested ZIPs are cleaned the same way, three levels deep. The archive comment and entry comments are not copied. Already-compressed images are stored rather than deflated again, which keeps packaging fast.
+- Limits: 1 GB per archive, 10,000 files, 100 MB per image, and 2 GB uncompressed in total. Decompressed bytes are counted as they stream, so an archive that understates its sizes (a decompression bomb) is stopped. Password-protected and damaged archives are refused with a clear message.
+- The result card lists every file with its outcome (*Cleaned*, *Fully stripped*, *Already clean*, *Kept as is*, *Removed*, *Left out*), the markers it carried, and the reason for anything left out. A CSV report is available, and the job appears in the Batch Queue, where it can be cancelled. The last three cleaned archives stay in memory so they can be downloaded again.
+
+This removes metadata only. Invisible watermarks embedded in the pixels (such as Google SynthID) are not metadata and are not changed, and platforms can still label images from their own detection or posting disclosures.
 
 ## Data and privacy
 
@@ -73,7 +111,7 @@ Development and production builds use Webpack because Turbopack repeatedly faile
 | WebP | EXIF and XMP packets | XMP and native EXIF edits; metadata chunk removal preserving image data and animation |
 | TIFF / HEIC | Metadata where supported by the parser | JSON export; cleaning converts to PNG if the browser can decode the image |
 | AVIF | Metadata where supported by the parser | JSON export; cleaning converts to PNG when decoded by the browser |
-| GIF | Preview and header inspection | JSON export; sanitization is rejected to avoid silently losing animation |
+| GIF | Preview, comments, and XMP | Lossless cleaning of comments, XMP, application blocks, and appended data; frames and looping are kept |
 
 Imports validate file signatures and allow up to 100 MB per image, with a queue limit of 500 images and 256 MB of source files. Browser canvas conversion is limited to 64 megapixels. Corrupt or unsupported writes produce an error and retain the last valid image.
 
@@ -81,7 +119,9 @@ Custom tags are stored in a MetaForge XMP namespace. Standard title, description
 
 Equivalent fields are kept in step: artist, copyright, and caption are written to native EXIF (JPEG, and PNG/WebP files that already carry EXIF) as well as IPTC and XMP, so other apps show the same values. EXIF text is stored as UTF-8, which ExifTool and current operating systems read, so `©` and non-Latin names survive. Date tags are written in the EXIF `YYYY:MM:DD HH:MM:SS` format; ISO dates are converted. The MetaForge XMP snapshot never contains GPS coordinates, and it records checksums of the native EXIF and the visible XMP fields: if another tool edits the file later, its values take precedence over the older snapshot on re-import. XMP written by other tools (for example Lightroom's `dc:title`, `dc:description`, `dc:subject`, and alt text) fills the SEO fields when IPTC is absent, and Stable Diffusion parameters stored in a Unicode EXIF `UserComment` are decoded.
 
-GPS cleaning also removes secondary packets, MakerNotes, and thumbnails that could duplicate coordinates; PNG and WebP GPS cleaning removes their descriptive metadata. Social cleaning retains artist/copyright attribution where present. Full cleaning retains rendering and color information for PNG/WebP. Rotated JPEGs may require re-encoding to preserve their displayed orientation. Unsupported formats may be converted to PNG with a matching filename extension. The privacy score flags detected metadata; it does not analyze identifying content visible in the pixels.
+GPS removal clears the native GPS directory and the MakerNotes and thumbnail that could repeat it, and removes coordinates and place names (city, country, location) from XMP and IPTC. Titles, captions, keywords, alt text, and copyright stay. If a location is still detected afterwards (for example inside free-form text), the image falls back to full cleaning. Social cleaning retains artist/copyright attribution where present. Full cleaning keeps rendering and colour information: the ICC profile and Adobe colour transform for JPEG, and colour chunks for PNG/WebP. Rotated JPEGs keep a minimal EXIF block with only the orientation, so they are not re-encoded; JFIF extension thumbnails, which can show an uncropped original, are removed.
+
+Images appended after a JPEG and listed in its Multi-Picture Format (MPF) index, such as Ultra HDR gain maps and camera preview images, are kept when tags, SEO fields, or AI labels (*AI labels only*) are edited: the MPF offsets and primary size are updated, and the Ultra HDR markers in the main XMP (`hdrgm:Version` and the GContainer directory) are carried into the rewritten packet. GPS removal, serial removal, social and full cleaning, and the stricter AI levels drop these images and their index, because they can carry their own metadata. Data appended without an MPF index, such as motion-photo video, is removed by every write. Unsupported formats may be converted to PNG with a matching filename extension. The privacy score flags detected metadata; it does not analyze identifying content visible in the pixels.
 
 ZIP exports disambiguate duplicate filenames. The sitemap builder validates the website URL and generates URLs under `/gallery/` and `/images/`; deploy your images at those paths before submission. Sitemap generation does not publish or upload images.
 

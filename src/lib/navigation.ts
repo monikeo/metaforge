@@ -1,6 +1,6 @@
 import type { AppView } from './types';
 
-export const WORKSPACE_VIEWS = ['studio', 'dashboard', 'compare', 'presets', 'jobs'] as const;
+export const WORKSPACE_VIEWS = ['studio', 'dashboard', 'ai-labels', 'compare', 'presets', 'jobs'] as const;
 
 export function workspaceView(value: string | null | undefined): AppView {
   if (value === 'batch') return 'jobs';

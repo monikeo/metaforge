@@ -34,6 +34,34 @@ export interface AiWorkflowInfo {
   model?: string;
 }
 
+/**
+ * C2PA: Content Credentials manifest. SOURCE_TYPE: IPTC digital source type. AI_FIELD: IPTC AI properties or an AIGC label.
+ * GENERATOR: software fields naming an AI tool. PROMPT: prompts, parameters, or workflow graphs. HISTORY: AI steps in edit history.
+ * DISCLOSURE: captions, keywords, or comments that say the image is AI-made.
+ */
+export type AiSignalKind = 'C2PA' | 'SOURCE_TYPE' | 'AI_FIELD' | 'GENERATOR' | 'PROMPT' | 'HISTORY' | 'DISCLOSURE';
+
+export interface AiSignal {
+  id: string;
+  kind: AiSignalKind;
+  label: string;
+  detail: string;
+  /** Where the signal is stored, for example "XMP DigitalSourceType" or "JPEG APP11 (JUMBF)". */
+  locations: string[];
+  /** Standard signals that social platforms read to show "AI info" or "Made with AI" labels. */
+  triggersLabel: boolean;
+}
+
+export interface AiProvenanceReport {
+  /** LABELED: carries standard AI label signals. TRACES: other AI metadata. CLEAN: none found. */
+  status: 'LABELED' | 'TRACES' | 'CLEAN';
+  signals: AiSignal[];
+  generator?: string;
+  sourceType?: string;
+}
+
+export type AiCleanLevel = 'ai' | 'private' | 'all';
+
 export interface SeoMetadata {
   title?: string;
   caption?: string;
@@ -81,6 +109,7 @@ export interface MetaFile {
     [key: string]: any;
   };
   aiWorkflow: AiWorkflowInfo;
+  aiProvenance: AiProvenanceReport;
   seoData: SeoMetadata;
   privacyReport: PrivacyRiskReport;
   rawHexSample?: string;
@@ -112,7 +141,7 @@ export type JobStatus = 'QUEUED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED'
 export interface BatchJob {
   id: string;
   name: string;
-  type: 'STRIP_GPS' | 'SANITIZE_SOCIAL' | 'APPLY_PRESET' | 'AI_SEO' | 'RENAME' | 'EXPORT_ZIP';
+  type: 'STRIP_GPS' | 'SANITIZE_SOCIAL' | 'APPLY_PRESET' | 'AI_SEO' | 'REMOVE_AI' | 'RENAME' | 'EXPORT_ZIP' | 'CLEAN_ZIP';
   status: JobStatus;
   total: number;
   completed: number;
@@ -130,5 +159,5 @@ export interface ToastMessage {
   timestamp: number;
 }
 
-export type AppView = 'studio' | 'dashboard' | 'compare' | 'presets' | 'jobs' | 'batch';
+export type AppView = 'studio' | 'dashboard' | 'ai-labels' | 'compare' | 'presets' | 'jobs' | 'batch';
 export type ImageGridViewMode = 'grid' | 'list' | 'compact' | 'preview';
