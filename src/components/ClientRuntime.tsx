@@ -11,7 +11,9 @@ export default function ClientRuntime() {
       useMetaForgeStore.getState().addToast({ type: 'error', title: 'Action Could Not Finish', description: event.reason instanceof Error ? event.reason.message : 'Try the action again. Your original files are unchanged.' });
     };
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (useMetaForgeStore.getState().files.length) event.preventDefault();
+      // Images live only in memory, and a running job (such as a ZIP being cleaned) would be lost.
+      const { files, isProcessing } = useMetaForgeStore.getState();
+      if (files.length || isProcessing) event.preventDefault();
     };
     window.addEventListener('unhandledrejection', handleRejection);
     window.addEventListener('beforeunload', beforeUnload);

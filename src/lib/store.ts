@@ -12,8 +12,9 @@ import {
   AiCleanLevel
 } from './types';
 import { parseDeepMetadata, seoFromRaw } from './metadata-reader';
-import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, rewriteNativeExif, isExifDateTag, normalizeExifDate, type NativeEdit } from './metadata-writer';
-import { clearNativeLocation, removeAiMetadataFromBlob, withoutLocation } from './metadata-cleaner';
+import { stripGpsFromBlob, stripAllMetadataFromBlob, writeMetadataToBlob, rewriteNativeExif, isExifDateTag, normalizeExifDate, SUPPORTED_FORMATS_LABEL, type NativeEdit } from './metadata-writer';
+import { cleaningProblem, clearNativeLocation, removeAiMetadataFromBlob, withoutLocation } from './metadata-cleaner';
+import { cleanZipArchive, DEFAULT_ZIP_BEHAVIOUR, extractZipImages, summarizeZipReport, zipReportCsv, ZipCancelledError, type ZipBehaviour, type ZipCleanReport } from './zip-cleaner';
 import { analyzePrivacyRisks } from './privacy-rules';
 import { workspaceHref, workspaceView } from './navigation';
 import { DEFAULT_GEMINI_MODEL, normalizeGeminiModel } from './ai-models';
@@ -78,6 +79,9 @@ const DEFAULT_PRESETS: MetadataPreset[] = [
 ];
 export const BUILT_IN_PRESET_IDS = DEFAULT_PRESETS.map((preset) => preset.id);
 const AI_CLEAN_LEVELS: AiCleanLevel[] = ['ai', 'private', 'all'];
+export interface ZipResultItem { id: string; createdAt: number; name: string; blob: Blob; report: ZipCleanReport }
+/** Cleaned archives stay in memory for downloading again; older ones are released. */
+const ZIP_RESULTS_KEPT = 3;
 /** Import limits, shown in the sidebar and enforced when adding files. */
 export const QUEUE_LIMITS = { files: 500, bytes: 256 * 1024 * 1024 } as const;
 
@@ -169,6 +173,19 @@ export interface MetaForgeState {
   removeAiLabels: (fileId: string) => Promise<boolean>;
   /** Without ids: every image that needs it (images with AI metadata for the "ai" level, all images otherwise). */
   batchRemoveAiLabels: (fileIds?: string[]) => Promise<boolean>;
+
+  // ZIP archives: cleaned archive in, cleaned archive out, without using the image queue.
+  zipBehaviour: ZipBehaviour;
+  setZipBehaviour: (options: Partial<ZipBehaviour>) => void;
+  /** Cleans each archive at the current AI cleaning level and downloads the cleaned copy. */
+  cleanZipArchives: (archives: File[]) => Promise<boolean>;
+  /** The latest cleaned archives (newest first), kept for this session so they can be downloaded again. */
+  zipResults: ZipResultItem[];
+  downloadZipResult: (id: string) => void;
+  downloadZipReport: (id: string) => void;
+  removeZipResult: (id: string) => void;
+  /** Adds the images inside archives to the queue. */
+  importZipArchives: (archives: File[]) => Promise<boolean>;
 
   // Presets & Batch
   applyPreset: (presetId: string, targetFileIds: string[]) => Promise<boolean>;
@@ -420,15 +437,30 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     const { aiCleanLevel: level, aiKeepAttribution: keepAttribution } = get();
     const result = await fromBlob(file, await removeAiMetadataFromBlob(blobOf(file), file.rawMetadata, { level, keepAttribution }));
     // The cleaned file is parsed again, so this checks the bytes that will be downloaded.
-    const remaining = result.aiProvenance.signals;
-    const leaks = [level !== 'ai' && result.privacyReport.hasGps && 'location', level === 'private' && result.privacyReport.hasDeviceSerial && 'device identifiers'].filter(Boolean);
-    if (remaining.length || leaks.length) {
+    const problem = cleaningProblem(result, level);
+    if (problem) {
       URL.revokeObjectURL(result.thumbnailUrl);
-      throw new Error(remaining.length
-        ? `${remaining.length} AI marker(s) could not be removed safely (${remaining.slice(0, 2).map((signal) => signal.label).join(', ')}). Use the Everything level for this image.`
-        : `Some ${leaks.join(' and ')} could not be removed safely. Use the Everything level for this image.`);
+      throw new Error(`${problem}. ${level === 'all' ? 'The image was left unchanged.' : 'Use the Everything level for this image.'}`);
     }
     return result;
+  };
+  /** Starts a cancellable job in the Batch Queue; `finish` records the outcome and releases the cancel control. */
+  const startJob = (name: string, type: BatchJob['type']) => {
+    const job: BatchJob = { id: uid(), name, type, status: 'RUNNING', total: 0, completed: 0, failed: 0, progress: 0, createdAt: Date.now(), errors: [] };
+    const controller = new AbortController();
+    activeBatch = { controller, type }; cancelRequested = false;
+    const publish = () => set((state) => ({ batchJobs: state.batchJobs.map((j) => j.id === job.id ? { ...job, errors: [...job.errors] } : j) }));
+    set((state) => ({ batchJobs: [job, ...state.batchJobs].slice(0, 100) }));
+    return {
+      job, signal: controller.signal, publish,
+      finish: (status: BatchJob['status']) => {
+        job.status = status;
+        if (status === 'COMPLETED' || status === 'FAILED') job.progress = 100;
+        publish();
+        if (activeBatch?.controller === controller) activeBatch = null;
+        cancelRequested = false;
+      }
+    };
   };
   const writeRaw = async (file: MetaFile, raw: RawMetadata, edits: NativeEdit[] = []) => fromBlob(file, await writeMetadataToBlob(blobOf(file), raw, edits));
   const editTag = (id: string, section: string, key: string, value: any, remove = false) => mutate(id, remove ? 'Tag Deleted' : 'Tag Saved', async (file) => {
@@ -567,6 +599,91 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
       }
       return batch('AI Label Removal', 'REMOVE_AI', targets, removeAi);
     },
+    zipBehaviour: DEFAULT_ZIP_BEHAVIOUR,
+    setZipBehaviour: (options) => set((state) => ({
+      zipBehaviour: { ...state.zipBehaviour, ...Object.fromEntries(Object.entries(options).filter(([key, value]) => key in DEFAULT_ZIP_BEHAVIOUR && typeof value === 'boolean')) }
+    })),
+    zipResults: [],
+    cleanZipArchives: (archives) => {
+      if (!archives.length) return Promise.resolve(false);
+      return run(archives.length === 1 ? `Cleaning ${archives[0].name}…` : `Cleaning ${archives.length} ZIP archives…`, async () => {
+        const { aiCleanLevel: level, aiKeepAttribution: keepAttribution, zipBehaviour } = get();
+        let ok = true;
+        for (const archive of archives) {
+          const { job, signal, publish, finish } = startJob(`Clean ZIP: ${archive.name}`, 'CLEAN_ZIP');
+          let published = 0;
+          try {
+            const result = await cleanZipArchive(archive, archive.name, { level, keepAttribution, ...zipBehaviour }, {
+              signal,
+              onProgress: ({ phase, done, total, current, percent }) => {
+                job.total = total; job.completed = done;
+                job.progress = phase === 'packaging' ? 95 + Math.floor(percent / 20) : total ? Math.min(95, Math.floor((done / total) * 95)) : 0;
+                // Thousands of small files would otherwise re-render the page for every one of them.
+                if (phase === 'cleaning' && Date.now() - published < 100) return;
+                published = Date.now();
+                set({ processingMessage: phase === 'packaging' ? `Packaging ${current}: ${Math.round(percent)}%` : `${archive.name}: ${Math.min(done + 1, total)}/${total} · ${current.split('/').pop()}` });
+                publish();
+              }
+            });
+            const { report } = result, failures = report.entries.filter((entry) => entry.outcome === 'failed');
+            job.total = report.entries.length; job.completed = report.entries.length - failures.length; job.failed = failures.length;
+            job.errors = failures.map((entry) => `${entry.path}: ${entry.note ?? 'Could not be cleaned.'}`);
+            finish(failures.length ? 'FAILED' : 'COMPLETED');
+            set((state) => ({ zipResults: [{ id: uid(), createdAt: Date.now(), ...result }, ...state.zipResults].slice(0, ZIP_RESULTS_KEPT) }));
+            if (failures.length) ok = false;
+            // An archive with nothing left in it is not worth a download; the report explains why.
+            if (!report.entries.some((entry) => entry.output)) {
+              get().addToast({ type: 'error', title: `Nothing Left in ${archive.name}`, description: `${summarizeZipReport(report)} Show the files in the cleaned archives list for the reasons.` });
+              continue;
+            }
+            saveAs(result.blob, result.name);
+            get().addToast({ type: failures.length ? 'warning' : 'success', title: failures.length ? `${result.name}: ${failures.length} file(s) left out` : `${result.name} is ready`, description: summarizeZipReport(report) });
+          } catch (error) {
+            const cancelled = error instanceof ZipCancelledError;
+            job.errors.push(errorMessage(error));
+            finish(cancelled ? 'CANCELLED' : 'FAILED');
+            if (cancelled) {
+              get().addToast({ type: 'warning', title: 'ZIP Cleaning Cancelled', description: `Nothing was downloaded for ${archive.name}.` });
+              return false;
+            }
+            notify(`${archive.name} Could Not Be Cleaned`, error);
+            ok = false;
+          }
+        }
+        return ok;
+      });
+    },
+    downloadZipResult: (id) => {
+      const item = get().zipResults.find((result) => result.id === id);
+      try { if (item) saveAs(item.blob, item.name); } catch (error) { notify('Download Failed', error); }
+    },
+    downloadZipReport: (id) => {
+      const item = get().zipResults.find((result) => result.id === id);
+      if (item) exportFile(zipReportCsv(item.report), 'text/csv;charset=utf-8', item.name.replace(/\.zip$/i, '-report.csv'));
+    },
+    removeZipResult: (id) => set((state) => ({ zipResults: state.zipResults.filter((result) => result.id !== id) })),
+    importZipArchives: async (archives) => {
+      if (!archives.length) return false;
+      const images: File[] = [];
+      const read = await run(archives.length === 1 ? `Reading ${archives[0].name}…` : `Reading ${archives.length} ZIP archives…`, async () => {
+        let skipped = 0;
+        const notes: string[] = [];
+        try {
+          for (const archive of archives) {
+            const result = await extractZipImages(archive, archive.name, { maxFiles: Math.max(0, QUEUE_LIMITS.files - get().files.length - images.length) });
+            images.push(...result.files); skipped += result.skipped; notes.push(...result.notes);
+          }
+        } catch (error) { notify('ZIP Could Not Be Imported', error); return false; }
+        if (!images.length) {
+          get().addToast({ type: 'error', title: 'No Images in the ZIP', description: notes[0] ?? `Archives can hold ${SUPPORTED_FORMATS_LABEL} images.` });
+          return false;
+        }
+        if (skipped) get().addToast({ type: 'info', title: 'Some ZIP Contents Skipped', description: `${skipped} file(s) were not images or did not fit in the queue.${notes[0] ? ` ${notes[0]}` : ''}` });
+        return true;
+      });
+      // Queued after this operation, so it cannot run inside it.
+      return read ? get().addFiles(images) : false;
+    },
     applyPreset: (presetId, ids) => batch('Preset Applied', 'APPLY_PRESET', ids, async (file, index) => {
       const found = get().presets.find((p) => p.id === presetId); if (!found) throw new Error('Preset no longer exists.');
       const preset = validatePreset(found);
@@ -650,7 +767,7 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
   };
 }, {
   name: 'metaforge_storage_v2', storage: persistedStorage, skipHydration: true,
-  partialize: (state) => ({ aiEnabled: state.aiEnabled, geminiApiKey: state.geminiApiKey, selectedModel: state.selectedModel, presets: state.presets, aiCleanLevel: state.aiCleanLevel, aiKeepAttribution: state.aiKeepAttribution }),
+  partialize: (state) => ({ aiEnabled: state.aiEnabled, geminiApiKey: state.geminiApiKey, selectedModel: state.selectedModel, presets: state.presets, aiCleanLevel: state.aiCleanLevel, aiKeepAttribution: state.aiKeepAttribution, zipBehaviour: state.zipBehaviour }),
   merge: (persisted, current) => {
     const saved = persisted && typeof persisted === 'object' ? persisted as Partial<MetaForgeState> : {};
     const presets: MetadataPreset[] = [];
@@ -662,7 +779,11 @@ export const useMetaForgeStore = create<MetaForgeState>()(persist((set, get) => 
     return {
       ...current, presets, aiEnabled: saved.aiEnabled === true, geminiApiKey, selectedModel: !geminiApiKey && selectedModel.startsWith('gemini-2.5-') ? DEFAULT_GEMINI_MODEL : selectedModel,
       aiCleanLevel: AI_CLEAN_LEVELS.includes(saved.aiCleanLevel as AiCleanLevel) ? saved.aiCleanLevel as AiCleanLevel : current.aiCleanLevel,
-      aiKeepAttribution: typeof saved.aiKeepAttribution === 'boolean' ? saved.aiKeepAttribution : current.aiKeepAttribution
+      aiKeepAttribution: typeof saved.aiKeepAttribution === 'boolean' ? saved.aiKeepAttribution : current.aiKeepAttribution,
+      zipBehaviour: Object.fromEntries(Object.entries(DEFAULT_ZIP_BEHAVIOUR).map(([key, fallback]) => {
+        const value = (saved.zipBehaviour as Record<string, unknown> | undefined)?.[key];
+        return [key, typeof value === 'boolean' ? value : fallback];
+      })) as ZipBehaviour
     };
   }
 }));

@@ -5,6 +5,7 @@ import { useMetaForge } from '@/lib/store';
 import { createSampleAiLabeledImage } from '@/lib/sample-data';
 import type { AiCleanLevel, AiSignalKind, MetaFile } from '@/lib/types';
 import Dropzone from '@/components/Dropzone';
+import ZipCleanerPanel from '@/components/AiLabels/ZipCleanerPanel';
 import {
   ScanEye,
   Eraser,
@@ -63,6 +64,71 @@ export default function AiLabelRemoverView() {
     catch (error) { addToast({ type: 'error', title: 'Sample Could Not Load', description: error instanceof Error ? error.message : 'Try an image from your device.' }); }
   };
 
+  const levelCard = (
+    <section aria-labelledby="ai-clean-heading" className="lg:order-2 lg:sticky lg:top-0 p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-3">
+      <h2 id="ai-clean-heading" className="text-xs font-bold uppercase tracking-wider text-neutral-400">Cleaning level</h2>
+      <div role="radiogroup" aria-labelledby="ai-clean-heading" className="flex flex-col gap-2">
+        {LEVELS.map((level) => (
+          <label
+            key={level.id}
+            className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-purple-500/40 ${
+              aiCleanLevel === level.id ? 'border-purple-500/50 bg-purple-500/10' : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
+            }`}
+          >
+            <input
+              type="radio"
+              name="ai-clean-level"
+              value={level.id}
+              checked={aiCleanLevel === level.id}
+              onChange={() => setAiCleanOptions({ level: level.id })}
+              aria-labelledby={`ai-level-${level.id}-title`}
+              aria-describedby={`ai-level-${level.id}-description`}
+              className="mt-0.5 w-4 h-4 accent-purple-500 shrink-0"
+            />
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span id={`ai-level-${level.id}-title`} className="text-xs font-semibold text-white">{level.title}</span>
+              <span id={`ai-level-${level.id}-description`} className="text-[11px] text-neutral-400 leading-snug">{level.description}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {aiCleanLevel === 'all' && (
+        <label className="flex items-start gap-2 text-xs text-neutral-300 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={aiKeepAttribution}
+            onChange={(event) => setAiCleanOptions({ keepAttribution: event.target.checked })}
+            className="mt-0.5 w-4 h-4 accent-purple-500 shrink-0"
+          />
+          <span>Keep creator and copyright <span className="text-neutral-500">(unless they name an AI tool)</span></span>
+        </label>
+      )}
+      {files.length > 0 && (
+        <>
+          <button
+            type="button"
+            disabled={isProcessing || batchCount === 0}
+            onClick={() => { void batchRemoveAiLabels(); }}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-md touch-target cursor-pointer"
+          >
+            <Eraser className="w-3.5 h-3.5" aria-hidden="true" />
+            {batchCount === 0 ? 'Nothing to remove' : `Remove from ${batchCount} image${batchCount === 1 ? '' : 's'}`}
+          </button>
+          <p className="text-[11px] text-neutral-500 leading-snug">
+            Each image is checked again after cleaning. If a marker remains, the image is left unchanged and the job reports it. Every change can be undone from the image history.
+          </p>
+        </>
+      )}
+      <p className="text-[11px] text-neutral-500 leading-snug">The level applies to the image list and to ZIP archives, and is remembered in this browser.</p>
+      <div className="pt-3 border-t border-neutral-800 flex flex-col gap-2 text-[11px] leading-snug">
+        <span className="font-semibold text-neutral-300">What platforms read</span>
+        <p className="text-neutral-400"><span className="text-neutral-200">Content Credentials (C2PA):</span> Instagram, Facebook, Threads, TikTok, LinkedIn and Google.</p>
+        <p className="text-neutral-400"><span className="text-neutral-200">IPTC digital source type:</span> Instagram, Facebook, Threads and Google.</p>
+        <p className="text-neutral-400"><span className="text-neutral-200">Prompts and tool names:</span> not used for labels, but anyone who opens the file can read them.</p>
+      </div>
+    </section>
+  );
+
   return (
     <div className="flex-1 flex flex-col gap-5 sm:gap-6 p-3 sm:p-6 max-w-7xl mx-auto w-full pb-safe">
       {/* Header */}
@@ -74,7 +140,8 @@ export default function AiLabelRemoverView() {
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1 leading-relaxed">
             Finds and removes the metadata that makes Instagram, Facebook, Threads, TikTok and LinkedIn show “AI info” labels:
-            Content Credentials (C2PA), the IPTC AI source type, prompts and AI tool names. Everything runs on this device and the image itself is not re-encoded.
+            Content Credentials (C2PA), the IPTC AI source type, prompts and AI tool names. Clean single images or a whole ZIP archive.
+            Everything runs on this device and the image itself is not re-encoded.
           </p>
         </div>
         {cleaned.length > 0 && (
@@ -90,98 +157,43 @@ export default function AiLabelRemoverView() {
         )}
       </div>
 
-      {files.length === 0 ? (
-        <div className="flex flex-col gap-4 max-w-3xl w-full mx-auto">
-          <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-bold text-white">Check a photo for AI labels</h2>
-              <p className="text-xs text-neutral-400 leading-relaxed">Add images to see which AI markers they carry. Nothing is uploaded.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => { void loadSample(); }}
-              disabled={isProcessing}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
-              Try an AI-labelled sample
-            </button>
-          </div>
-          <Dropzone />
-          <WatermarkNote />
+      {files.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <Stat label="Scanned" value={files.length} note="Images in the queue" />
+          <Stat label="Label signals" value={labeled} note="Platforms can label these" tone={labeled ? 'text-rose-300' : 'text-white'} />
+          <Stat label="AI metadata" value={traces} note="Prompts, tools, history" tone={traces ? 'text-amber-300' : 'text-white'} />
+          <Stat label="Clean" value={files.length - needsCleaning} note={cleaned.length ? `${cleaned.length} cleaned and verified` : 'No AI markers found'} tone="text-emerald-300" />
         </div>
-      ) : (
-        <>
-          {/* Summary */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Stat label="Scanned" value={files.length} note="Images in the queue" />
-            <Stat label="Label signals" value={labeled} note="Platforms can label these" tone={labeled ? 'text-rose-300' : 'text-white'} />
-            <Stat label="AI metadata" value={traces} note="Prompts, tools, history" tone={traces ? 'text-amber-300' : 'text-white'} />
-            <Stat label="Clean" value={files.length - needsCleaning} note={cleaned.length ? `${cleaned.length} cleaned and verified` : 'No AI markers found'} tone="text-emerald-300" />
-          </div>
+      )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-4 items-start">
-            {/* Cleaning options: first on phones, so the level is chosen before running. */}
-            <section aria-labelledby="ai-clean-heading" className="lg:order-2 lg:sticky lg:top-0 p-4 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col gap-3">
-              <h2 id="ai-clean-heading" className="text-xs font-bold uppercase tracking-wider text-neutral-400">Cleaning level</h2>
-              <div role="radiogroup" aria-labelledby="ai-clean-heading" className="flex flex-col gap-2">
-                {LEVELS.map((level) => (
-                  <label
-                    key={level.id}
-                    className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-purple-500/40 ${
-                      aiCleanLevel === level.id ? 'border-purple-500/50 bg-purple-500/10' : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="ai-clean-level"
-                      value={level.id}
-                      checked={aiCleanLevel === level.id}
-                      onChange={() => setAiCleanOptions({ level: level.id })}
-                      aria-labelledby={`ai-level-${level.id}-title`}
-                      aria-describedby={`ai-level-${level.id}-description`}
-                      className="mt-0.5 w-4 h-4 accent-purple-500 shrink-0"
-                    />
-                    <span className="flex flex-col gap-0.5 min-w-0">
-                      <span id={`ai-level-${level.id}-title`} className="text-xs font-semibold text-white">{level.title}</span>
-                      <span id={`ai-level-${level.id}-description`} className="text-[11px] text-neutral-400 leading-snug">{level.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {aiCleanLevel === 'all' && (
-                <label className="flex items-start gap-2 text-xs text-neutral-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={aiKeepAttribution}
-                    onChange={(event) => setAiCleanOptions({ keepAttribution: event.target.checked })}
-                    className="mt-0.5 w-4 h-4 accent-purple-500 shrink-0"
-                  />
-                  <span>Keep creator and copyright <span className="text-neutral-500">(unless they name an AI tool)</span></span>
-                </label>
-              )}
-              <button
-                type="button"
-                disabled={isProcessing || batchCount === 0}
-                onClick={() => { void batchRemoveAiLabels(); }}
-                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition shadow-md touch-target cursor-pointer"
-              >
-                <Eraser className="w-3.5 h-3.5" aria-hidden="true" />
-                {batchCount === 0 ? 'Nothing to remove' : `Remove from ${batchCount} image${batchCount === 1 ? '' : 's'}`}
-              </button>
-              <p className="text-[11px] text-neutral-500 leading-snug">
-                Each image is checked again after cleaning. If a marker remains, the image is left unchanged and the job reports it. Every change can be undone from the image history.
-              </p>
-              <div className="pt-3 border-t border-neutral-800 flex flex-col gap-2 text-[11px] leading-snug">
-                <span className="font-semibold text-neutral-300">What platforms read</span>
-                <p className="text-neutral-400"><span className="text-neutral-200">Content Credentials (C2PA):</span> Instagram, Facebook, Threads, TikTok, LinkedIn and Google.</p>
-                <p className="text-neutral-400"><span className="text-neutral-200">IPTC digital source type:</span> Instagram, Facebook, Threads and Google.</p>
-                <p className="text-neutral-400"><span className="text-neutral-200">Prompts and tool names:</span> not used for labels, but anyone who opens the file can read them.</p>
-              </div>
-            </section>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-4 items-start">
+        {/* Cleaning options: first on phones, so the level is chosen before running. */}
+        {levelCard}
 
-            {/* Image list */}
-            <section aria-labelledby="ai-images-heading" className="lg:order-1 min-w-0 p-3 sm:p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-3">
+        <div className="lg:order-1 min-w-0 flex flex-col gap-4">
+          <ZipCleanerPanel />
+
+          {files.length === 0 ? (
+            <>
+              <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-sm font-bold text-white">Check single photos for AI labels</h2>
+                  <p className="text-xs text-neutral-400 leading-relaxed">Add images to see which AI markers each one carries, then clean them one by one or all at once. Nothing is uploaded.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { void loadSample(); }}
+                  disabled={isProcessing}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 transition touch-target sm:min-h-0 shrink-0"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
+                  Try an AI-labelled sample
+                </button>
+              </div>
+              <Dropzone />
+            </>
+          ) : (
+            <section aria-labelledby="ai-images-heading" className="min-w-0 p-3 sm:p-4 rounded-2xl bg-neutral-900/60 border border-neutral-800 flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 id="ai-images-heading" className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
                   <Images className="w-3.5 h-3.5" aria-hidden="true" /> Images
@@ -223,10 +235,10 @@ export default function AiLabelRemoverView() {
                 <Dropzone />
               </div>
             </section>
-          </div>
-          <WatermarkNote />
-        </>
-      )}
+          )}
+        </div>
+      </div>
+      <WatermarkNote />
     </div>
   );
 }

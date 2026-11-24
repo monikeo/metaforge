@@ -24,7 +24,7 @@ npm run build
 npm audit
 ```
 
-The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, AI label detection and removal (C2PA, IPTC source types, prompts) with unchanged pixel data and no false positives on look-alike words, Ultra HDR gain maps and MPF indexes across edits, immutable history, concurrent edits, batch results and cancellation, presets, filenames, sitemap validation, EXIF date and UTF-8 encoding, snapshot integrity against edits made by other tools, AI batch generation with a mocked Gemini client, and CSV/JSON export escaping. Browser decoding is verified separately from the test suite's Image stub.
+The regression suite uses Node's assertions and TypeScript already installed in this project. It verifies actual image metadata bytes, Unicode round trips, location cleaning, AI label detection and removal (C2PA, IPTC source types, prompts) with unchanged pixel data and no false positives on look-alike words, Ultra HDR gain maps and MPF indexes across edits, lossless GIF cleaning, ZIP archive cleaning (folders, names, dates, nested archives, sidecar and system files, fallback stripping, decompression-bomb and forged-size limits, encrypted and invalid archives), immutable history, concurrent edits, batch results and cancellation, presets, filenames, sitemap validation, EXIF date and UTF-8 encoding, snapshot integrity against edits made by other tools, AI batch generation with a mocked Gemini client, and CSV/JSON export escaping. Browser decoding is verified separately from the test suite's Image stub.
 
 For browser QA, install Firefox through the included Playwright dependency, start the production app on port 3100, and run:
 
@@ -48,7 +48,7 @@ Development and production builds use Webpack because Turbopack repeatedly faile
 
 ## Working with images
 
-- **Import:** choose files, drop images or whole folders onto the page, or paste a copied image or screenshot (Ctrl/⌘+V). Dropping a file anywhere in the studio imports it rather than navigating away from your session.
+- **Import:** choose files, drop images, whole folders or ZIP archives onto the page, or paste a copied image or screenshot (Ctrl/⌘+V). Dropping a file anywhere in the studio imports it rather than navigating away from your session. The images inside a ZIP (and ZIPs inside it) join the queue; on the AI Label Remover page a dropped ZIP is cleaned into a new archive instead. Unsupported files (SVG, BMP, documents) are skipped up front and reported, and an unreadable file in a dropped folder no longer cancels the rest of the drop.
 - **Batch jobs:** GPS removal, sanitizing, presets, bulk edits, renames, and AI SEO run one image at a time. A running job can be cancelled from the header or the Batch Processing view; images already processed keep their changes.
 - **AI SEO in bulk:** with a Gemini key configured, *Batch Edit → AI SEO* (or the command menu) generates a title, caption, alt text, and keywords for selected images. It can skip images that are already complete and either save results into the files or keep them as drafts. Key, permission, and quota errors stop the job instead of failing every remaining image.
 - **Exports:** single images, a ZIP of all or selected images, a JSON catalog, and a CSV spreadsheet (titles, captions, keywords, attribution, camera data, GPS, privacy findings, and AI label findings). CSV cells that start with formula characters are prefixed so spreadsheets do not execute them.
@@ -75,7 +75,19 @@ Three cleaning levels are available; the choice is remembered in this browser:
 - **AI labels + location & device:** also removes all Content Credentials, GPS and place names, serial numbers, owner, host computer, software, XMP document IDs, MakerNotes, and thumbnails.
 - **Everything:** removes all metadata but keeps the ICC colour profile and orientation (no re-encoding), and optionally the creator and copyright, unless those name an AI tool.
 
-After cleaning, the new file is parsed and scanned again. If any marker (or, for the location level, GPS or a device identifier) remains, the image is left unchanged and the job reports why. Each change is recorded in the image history and can be restored. HEIC, AVIF, and TIFF are converted to PNG; GIF is rejected to keep animation.
+After cleaning, the new file is parsed and scanned again. If any marker (or, for the location level, GPS or a device identifier) remains, the image is left unchanged and the job reports why. Each change is recorded in the image history and can be restored. HEIC, AVIF, and TIFF are converted to PNG. GIF is cleaned block by block: comments, XMP, and other application blocks that carry AI markers are removed (all of them at the stricter levels), while frames, timing, transparency, looping, and the colour profile are copied unchanged.
+
+### ZIP archives
+
+*Clean a ZIP archive* on the same page takes a `.zip` (drop it, choose it, or use *Clean a ZIP Archive* in the command menu) and downloads a cleaned copy named `<name>-clean.zip` with the same folders, file names, and file dates. It uses the selected cleaning level and does not touch the image queue, so archives with thousands of images work.
+
+- Every image is identified by its content, not its extension, cleaned, and scanned again. Only verified results go into the new archive. Images without AI metadata (at *AI labels only*) are copied byte for byte.
+- **Strip fully when a marker remains** (on by default): if the chosen level leaves a marker behind (for example AI metadata inside an Ultra HDR gain map, which *AI labels only* keeps), that image's metadata is removed entirely, losslessly. With the option off, or if even that fails (a damaged image), the file is left out of the archive and listed with the reason.
+- **Remove AI sidecar files** (on by default): prompt, caption, workflow, and XMP files next to an image (`photo.txt`, `photo.json`, `photo.png.xmp`) are left out when they carry AI metadata; at *Everything*, XMP sidecars are always left out. Other documents are kept unchanged; the report notes those that mention AI.
+- **Remove system files** (on by default): `__MACOSX` folders, AppleDouble `._` files, `.DS_Store`, `Thumbs.db`, and `desktop.ini`. AppleDouble files can carry the address a file was downloaded from.
+- Nested ZIPs are cleaned the same way, three levels deep. The archive comment and entry comments are not copied. Already-compressed images are stored rather than deflated again, which keeps packaging fast.
+- Limits: 1 GB per archive, 10,000 files, 100 MB per image, and 2 GB uncompressed in total. Decompressed bytes are counted as they stream, so an archive that understates its sizes (a decompression bomb) is stopped. Password-protected and damaged archives are refused with a clear message.
+- The result card lists every file with its outcome (*Cleaned*, *Fully stripped*, *Already clean*, *Kept as is*, *Removed*, *Left out*), the markers it carried, and the reason for anything left out. A CSV report is available, and the job appears in the Batch Queue, where it can be cancelled. The last three cleaned archives stay in memory so they can be downloaded again.
 
 This removes metadata only. Invisible watermarks embedded in the pixels (such as Google SynthID) are not metadata and are not changed, and platforms can still label images from their own detection or posting disclosures.
 
@@ -99,7 +111,7 @@ This removes metadata only. Invisible watermarks embedded in the pixels (such as
 | WebP | EXIF and XMP packets | XMP and native EXIF edits; metadata chunk removal preserving image data and animation |
 | TIFF / HEIC | Metadata where supported by the parser | JSON export; cleaning converts to PNG if the browser can decode the image |
 | AVIF | Metadata where supported by the parser | JSON export; cleaning converts to PNG when decoded by the browser |
-| GIF | Preview and header inspection | JSON export; sanitization is rejected to avoid silently losing animation |
+| GIF | Preview, comments, and XMP | Lossless cleaning of comments, XMP, application blocks, and appended data; frames and looping are kept |
 
 Imports validate file signatures and allow up to 100 MB per image, with a queue limit of 500 images and 256 MB of source files. Browser canvas conversion is limited to 64 megapixels. Corrupt or unsupported writes produce an error and retain the last valid image.
 

@@ -141,6 +141,24 @@ const base=process.env.BASE_URL || 'http://127.0.0.1:3100';
  const zipDownload=page.waitForEvent('download');await command.getByPlaceholder('Type a command, tool, or search files...').press('Enter');
  const archive=await zipDownload,zip=await JSZip.loadAsync(fs.readFileSync(await archive.path()));
  assert.equal(Object.keys(zip.files).filter(name=>/duplicate(?:-\d+)?\.jpg$/.test(name)).length,2);log('ZIP preserves duplicate filenames and command palette runs export');
+ // A ZIP in, a cleaned ZIP out, in the real browser: folders and names kept, AI markers gone, prompt sidecars and system files removed.
+ await page.getByRole('link',{name:'AI Label Remover',exact:true}).click();await page.getByRole('heading',{name:'Clean a ZIP archive',exact:true}).waitFor();
+ const fixtureJpeg=fs.readFileSync(`${__dirname}/fixtures/image.jpg`),fixturePng=fs.readFileSync(`${__dirname}/fixtures/image.png`);
+ const jpegSegment=(marker,data)=>Buffer.concat([Buffer.from([255,marker,(data.length+2)>>8,(data.length+2)&255]),data]);
+ const aiXmp='<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"><Iptc4xmpExt:DigitalSourceType>http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia</Iptc4xmpExt:DigitalSourceType></rdf:Description></rdf:RDF></x:xmpmeta>';
+ const source=new JSZip();
+ source.file('set/render.jpg',Buffer.concat([fixtureJpeg.subarray(0,2),jpegSegment(225,Buffer.concat([Buffer.from('http://ns.adobe.com/xap/1.0/\0'),Buffer.from(aiXmp)])),jpegSegment(254,Buffer.from('Generated with DALL-E 3')),fixtureJpeg.subarray(2)]));
+ source.file('set/render.txt','koi pond\nSteps: 30, Sampler: Euler a, Seed: 9');source.file('set/plain.png',fixturePng);source.file('__MACOSX/set/._render.jpg','AppleDouble');
+ const cleanedDownload=page.waitForEvent('download');
+ await page.locator('input[aria-label="Choose ZIP archives"]').setInputFiles({name:'renders.zip',mimeType:'application/zip',buffer:await source.generateAsync({type:'nodebuffer',compression:'DEFLATE'})});
+ const cleanedArchive=await cleanedDownload;assert.equal(cleanedArchive.suggestedFilename(),'renders-clean.zip');
+ const cleanedZip=await JSZip.loadAsync(fs.readFileSync(await cleanedArchive.path()));
+ assert.deepEqual(Object.keys(cleanedZip.files).filter(name=>!cleanedZip.files[name].dir).sort(),['set/plain.png','set/render.jpg']);
+ const cleanedJpeg=await cleanedZip.file('set/render.jpg').async('nodebuffer');
+ for(const marker of ['trainedAlgorithmicMedia','DALL-E'])assert.equal(cleanedJpeg.includes(Buffer.from(marker)),false,`${marker} survived ZIP cleaning`);
+ assert.deepEqual(await cleanedZip.file('set/plain.png').async('nodebuffer'),fixturePng,'clean images are copied byte for byte');
+ await page.getByText('renders-clean.zip',{exact:true}).filter({visible:true}).first().waitFor();
+ await page.getByRole('link',{name:/Studio Workstation/}).click();log('ZIP archive cleaning returns a verified archive with folders and names kept');
  // Exercise the WebP writer with the real browser decoder, including transparency.
  await upload.setInputFiles({name:'image.webp',mimeType:'image/webp',buffer:fs.readFileSync(`${__dirname}/fixtures/image.webp`)});
  const webp=page.getByRole('group',{name:'image.webp',exact:true});await webp.click();

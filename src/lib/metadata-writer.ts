@@ -19,6 +19,7 @@ const join = (parts: Uint8Array[]) => {
   return result;
 };
 export interface NativeEdit { section: string; key: string; value?: any; remove?: boolean }
+export const SUPPORTED_FORMATS_LABEL = 'JPEG, PNG, WebP, AVIF, HEIC, TIFF, or GIF';
 export function imageFormat(bytes: Uint8Array): string {
   if (bytes[0] === 255 && bytes[1] === 216) return 'image/jpeg';
   if (bytes[0] === 137 && text(bytes.subarray(1, 8)) === 'PNG\r\n\x1a\n') return 'image/png';
@@ -30,7 +31,7 @@ export function imageFormat(bytes: Uint8Array): string {
   }
   if ((bytes[0] === 73 && bytes[1] === 73 && bytes[2] === 42) || (bytes[0] === 77 && bytes[1] === 77 && bytes[3] === 42)) return 'image/tiff';
   if (/^GIF8[79]a/.test(text(bytes.subarray(0, 6)))) return 'image/gif';
-  throw new Error('Unsupported or corrupt image header. Use JPEG, PNG, WebP, AVIF, HEIC, TIFF, or GIF.');
+  throw new Error(`Unsupported or corrupt image header. Use ${SUPPORTED_FORMATS_LABEL}.`);
 }
 export function dataUrlToBlob(dataUrl: string): Blob {
   const [header, data] = dataUrl.split(',');
@@ -539,6 +540,67 @@ export async function sanitizeViaCanvas(blob: Blob, mimeType = 'image/png', qual
     image.src = url;
   });
 }
+export interface GifBlock {
+  kind: 'header' | 'image' | 'extension' | 'trailer';
+  /** Extension label: 0xF9 graphic control, 0xFE comment, 0x01 plain text, 0xFF application. */
+  label?: number;
+  /** Application identifier and authentication code, for example "NETSCAPE2.0" or "XMP DataXMP". */
+  app?: string;
+  /** The complete block as stored. */
+  packet: Uint8Array;
+  /** Extension data with the sub-block lengths removed (after the application identifier). */
+  payload?: Uint8Array;
+}
+const colorTableSize = (flags: number) => flags & 0x80 ? 3 * (1 << ((flags & 7) + 1)) : 0;
+/** Splits a GIF into its blocks. Data after the trailer is not returned. */
+export function gifBlocks(bytes: Uint8Array): GifBlock[] {
+  if (bytes.length < 14 || imageFormat(bytes) !== 'image/gif') throw new Error('Corrupt GIF header.');
+  let offset = 13 + colorTableSize(bytes[10]);
+  const blocks: GifBlock[] = [{ kind: 'header', packet: bytes.subarray(0, offset) }];
+  const subBlocks = (at: number) => {
+    const parts: Uint8Array[] = [];
+    while (at < bytes.length) {
+      const size = bytes[at];
+      if (!size) return { end: at + 1, parts };
+      parts.push(bytes.subarray(at + 1, Math.min(bytes.length, at + 1 + size)));
+      at += 1 + size;
+    }
+    throw new Error('Truncated GIF block.');
+  };
+  while (offset < bytes.length) {
+    const start = offset, introducer = bytes[offset];
+    if (introducer === 0x3b) { blocks.push({ kind: 'trailer', packet: bytes.subarray(start, start + 1) }); return blocks; }
+    if (introducer === 0x2c) {
+      if (offset + 11 > bytes.length) throw new Error('Truncated GIF image.');
+      // Image descriptor (10 bytes), local colour table, LZW minimum code size, then the data sub-blocks.
+      const { end } = subBlocks(offset + 10 + colorTableSize(bytes[offset + 9]) + 1);
+      blocks.push({ kind: 'image', packet: bytes.subarray(start, end) });
+      offset = end;
+      continue;
+    }
+    if (introducer === 0x21) {
+      const label = bytes[offset + 1];
+      const { end, parts } = subBlocks(offset + 2);
+      const app = label === 0xff && parts[0]?.length === 11 ? text(parts[0]) : undefined;
+      blocks.push({ kind: 'extension', label, app, packet: bytes.subarray(start, end), payload: join(app ? parts.slice(1) : parts) });
+      offset = end;
+      continue;
+    }
+    throw new Error('Corrupt GIF block.');
+  }
+  throw new Error('GIF trailer is missing.');
+}
+/** Application extensions that affect how a GIF plays or looks: animation looping and the ICC colour profile. */
+export const isRenderingGifExtension = (block: GifBlock) => block.label === 0xf9 || block.label === 0x01
+  || (block.label === 0xff && /^(?:NETSCAPE2\.0|ANIMEXTS1\.0|ICCRGBG1012)$/.test(block.app ?? ''));
+/**
+ * Lossless GIF clean: removes comments, XMP and other application extensions, and data after the trailer.
+ * Frames, timing, transparency, looping and the colour profile are copied unchanged, so animation is kept.
+ */
+export function stripGifMetadata(bytes: Uint8Array): Uint8Array {
+  return join(gifBlocks(bytes).filter((block) => block.kind !== 'extension' || isRenderingGifExtension(block)).map((block) => block.packet));
+}
+
 const isIccSegment = (marker: number, data: Uint8Array) => marker === 226 && text(data.subarray(0, 12)) === 'ICC_PROFILE\0';
 /**
  * Lossless JPEG clean. Keeps the compressed image, the JFIF header, Adobe colour transform, ICC colour profile,
@@ -562,7 +624,7 @@ export async function stripAllMetadataFromBlob(blob: Blob): Promise<Blob> {
     return new Blob([join([bytes.subarray(0, 8), ...containerPackets(bytes).filter((p) => keep.includes(p.type)).map((p) => p.packet)]) as Uint8Array<ArrayBuffer>], { type: format });
   }
   if (format === 'image/webp') return new Blob([rewriteWebp(bytes) as Uint8Array<ArrayBuffer>], { type: format });
-  if (format === 'image/gif') throw new Error('GIF sanitization could remove animation. Convert a copy to PNG or WebP first.');
+  if (format === 'image/gif') return new Blob([stripGifMetadata(bytes) as Uint8Array<ArrayBuffer>], { type: format });
   return sanitizeViaCanvas(blob);
 }
 export async function stripGpsFromBlob(blob: Blob): Promise<Blob> {

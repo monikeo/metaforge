@@ -1,5 +1,5 @@
 import exifr from 'exifr';
-import { AiWorkflowInfo, MetaFile } from './types';
+import type { AiProvenanceReport, AiWorkflowInfo, MetaFile, PrivacyRiskReport } from './types';
 import { analyzePrivacyRisks } from './privacy-rules';
 import { scanAiProvenance } from './ai-provenance';
 import { imageFormat, containerPackets, readEmbeddedSnapshot, readNativeUserComment, firstText, textList, MIRRORED_SNAPSHOT_FIELDS } from './metadata-writer';
@@ -260,13 +260,23 @@ export function generateHexSample(buffer: ArrayBuffer, bytesCount = 512): string
   return result;
 }
 
-export async function parseDeepMetadata(file: File): Promise<MetaFile> {
-  if (!file.size) throw new Error('The image is empty.');
-  if (file.size > 100 * 1024 * 1024) throw new Error('Images must be 100 MB or smaller.');
-  const buffer = await file.arrayBuffer();
+export interface MetadataScan {
+  format: string;
+  rawMetadata: MetaFile['rawMetadata'];
+  aiWorkflow: AiWorkflowInfo;
+  aiProvenance: AiProvenanceReport;
+  privacyReport: PrivacyRiskReport;
+}
+
+/**
+ * Reads and analyses an image's metadata without decoding the picture: AI labels, AI workflow, and privacy findings.
+ * Used for every import, and on its own to verify cleaned files in bulk (ZIP cleaning), where decoding would be wasted.
+ */
+export async function scanImageMetadata(file: Blob, preloaded?: ArrayBuffer): Promise<MetadataScan> {
+  const buffer = preloaded ?? await file.arrayBuffer();
+  if (!buffer.byteLength) throw new Error('The image is empty.');
   const format = imageFormat(new Uint8Array(buffer));
   const embedded = readEmbeddedSnapshot(new Uint8Array(buffer));
-  const hexSample = generateHexSample(buffer, 4096);
 
   // Parse PNG chunks if PNG
   let pngChunks: Record<string, string> = {};
@@ -356,6 +366,15 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
   // Detect Privacy risks
   const privacyReport = analyzePrivacyRisks(rawMetadata, nativeMetadata);
   if (inspectionWarning) privacyReport.inspectionWarning = inspectionWarning;
+  return { format, rawMetadata, aiWorkflow, aiProvenance, privacyReport };
+}
+
+export async function parseDeepMetadata(file: File): Promise<MetaFile> {
+  if (!file.size) throw new Error('The image is empty.');
+  if (file.size > 100 * 1024 * 1024) throw new Error('Images must be 100 MB or smaller.');
+  const buffer = await file.arrayBuffer();
+  const { format, rawMetadata, aiWorkflow, aiProvenance, privacyReport } = await scanImageMetadata(file, buffer);
+  const hexSample = generateHexSample(buffer, 4096);
 
   // Generate thumbnail URL
   const thumbnailUrl = URL.createObjectURL(new Blob([file], { type: format }));
@@ -371,9 +390,10 @@ export async function parseDeepMetadata(file: File): Promise<MetaFile> {
       image.onload = () => { clearTimeout(timer); width = image.naturalWidth; height = image.naturalHeight; resolve(); };
       image.onerror = () => {
         clearTimeout(timer);
-        if (['image/heic', 'image/tiff'].includes(format) && Object.keys(rawMetadata.exif || {}).length) {
-          width = Number(rawMetadata.exif.ExifImageWidth || rawMetadata.exif.ImageWidth) || undefined;
-          height = Number(rawMetadata.exif.ExifImageHeight || rawMetadata.exif.ImageHeight) || undefined;
+        const exif = rawMetadata.exif || {};
+        if (['image/heic', 'image/tiff'].includes(format) && Object.keys(exif).length) {
+          width = Number(exif.ExifImageWidth || exif.ImageWidth) || undefined;
+          height = Number(exif.ExifImageHeight || exif.ImageHeight) || undefined;
           resolve();
         }
         else reject(new Error('The image is corrupt or cannot be decoded by this browser.'));

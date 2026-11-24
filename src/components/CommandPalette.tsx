@@ -21,7 +21,8 @@ import {
   FileSpreadsheet,
   Sparkles,
   ScanEye,
-  Eraser
+  Eraser,
+  FileArchive
 } from 'lucide-react';
 
 export default function CommandPalette() {
@@ -124,6 +125,17 @@ export default function CommandPalette() {
       category: 'Actions',
       icon: Eraser,
       action: () => { void batchRemoveAiLabels(selectedFileIds.length ? selectedFileIds : undefined); }
+    },
+    {
+      id: 'cmd-clean-zip',
+      title: 'Clean a ZIP Archive of AI Labels & Metadata',
+      category: 'Tools',
+      icon: FileArchive,
+      action: () => {
+        setCurrentView('ai-labels');
+        // Opens the picker while this key press or click still counts as user activation; the page shows the ZIP area either way.
+        setTimeout(() => document.querySelector<HTMLInputElement>('input[aria-label="Choose ZIP archives"]')?.click(), 100);
+      }
     },
     {
       id: 'cmd-export-zip',

@@ -141,7 +141,7 @@ export type JobStatus = 'QUEUED' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAILED'
 export interface BatchJob {
   id: string;
   name: string;
-  type: 'STRIP_GPS' | 'SANITIZE_SOCIAL' | 'APPLY_PRESET' | 'AI_SEO' | 'REMOVE_AI' | 'RENAME' | 'EXPORT_ZIP';
+  type: 'STRIP_GPS' | 'SANITIZE_SOCIAL' | 'APPLY_PRESET' | 'AI_SEO' | 'REMOVE_AI' | 'RENAME' | 'EXPORT_ZIP' | 'CLEAN_ZIP';
   status: JobStatus;
   total: number;
   completed: number;

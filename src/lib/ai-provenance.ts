@@ -1,5 +1,5 @@
 import type { AiProvenanceReport, AiSignal, AiSignalKind } from './types';
-import { containerPackets, imageFormat, jpegSegments } from './metadata-writer';
+import { containerPackets, gifBlocks, imageFormat, isRenderingGifExtension, jpegSegments } from './metadata-writer';
 
 /*
  * Finds the metadata that marks an image as AI-generated or AI-edited.
@@ -277,8 +277,21 @@ function metadataRegions(bytes: Uint8Array, format: string): Region[] {
       else if (type === 'iTXt' && latin1.decode(data.subarray(0, 18)) === 'XML:com.adobe.xmp\0') regions.push({ location: 'PNG XMP chunk', data, kind: 'xmp' });
       else if (!(format === 'image/png' ? KNOWN_PNG : KNOWN_WEBP).has(type)) regions.push({ location: `${container} ${type.trim()} chunk`, data, kind: 'opaque' });
     }
+  } else if (format === 'image/gif') {
+    try {
+      const blocks = gifBlocks(bytes), last = blocks[blocks.length - 1].packet;
+      for (const block of blocks) {
+        if (block.kind !== 'extension' || isRenderingGifExtension(block)) continue;
+        if (block.label === 0xfe) regions.push({ location: 'GIF comment', data: block.payload!, kind: 'text' });
+        // GIF XMP is stored raw rather than in sub-blocks, so the whole block is searched.
+        else if (block.app === 'XMP DataXMP') regions.push({ location: 'GIF XMP packet', data: block.packet, kind: 'xmp' });
+        else regions.push({ location: `GIF ${block.app?.trim() || 'application'} extension`, data: block.packet, kind: 'opaque' });
+      }
+      const trailer = bytes.subarray(last.byteOffset - bytes.byteOffset + last.length);
+      if (trailer.length) regions.push({ location: 'Data after the image end', data: trailer, kind: 'opaque' });
+    } catch { regions.push({ location: 'Image container', data: bytes, kind: 'opaque' }); }
   } else {
-    // HEIC, AVIF, TIFF and GIF are cleaned by conversion, so a byte search is enough to report what they carry.
+    // HEIC, AVIF and TIFF are cleaned by conversion, so a byte search is enough to report what they carry.
     regions.push({ location: 'Image container', data: bytes, kind: 'opaque' });
   }
   return regions;

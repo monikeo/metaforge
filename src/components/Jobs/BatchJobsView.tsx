@@ -120,7 +120,7 @@ export default function BatchJobsView() {
                   </span>
 
                   <span className="text-xs font-mono font-bold text-neutral-200">
-                    {job.completed} / {job.total} images
+                    {job.completed} / {job.total} {job.type === 'CLEAN_ZIP' ? 'files' : 'images'}
                   </span>
 
                   {isRunning && (

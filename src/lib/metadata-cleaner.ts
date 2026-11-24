@@ -1,7 +1,7 @@
 import piexif from 'piexifjs';
 import type { AiCleanLevel, MetaFile } from './types';
 import { AI_SECTIONS, c2paDeclaresAi, c2paJumbfInstances, classifyAiField, isAiKeyword, isKeywordKey, isStandardChunk, jumbfInstance, keywordItems, normalizeKey, packetHasAiLabel, scanAiProvenance } from './ai-provenance';
-import { firstText, imageFormat, jpegPackets, rewriteContainerChunks, rewriteNativeExif, stripAllMetadataFromBlob, writeMetadataToBlob, type NativeEdit } from './metadata-writer';
+import { firstText, gifBlocks, imageFormat, isRenderingGifExtension, jpegPackets, rewriteContainerChunks, rewriteNativeExif, stripAllMetadataFromBlob, writeMetadataToBlob, type NativeEdit } from './metadata-writer';
 
 type RawMetadata = MetaFile['rawMetadata'];
 export interface AiCleanOptions { level: AiCleanLevel; keepAttribution: boolean }
@@ -99,8 +99,25 @@ export async function stripProvenancePackets(blob: Blob, level: AiCleanLevel): P
       if (!isStandardChunk(format, type)) return packetHasAiLabel(data, 'opaque') ? null : packet;
       return packet;
     });
+  } else if (format === 'image/gif') {
+    // Comments, XMP and application blocks that carry AI markers are dropped, and so is data after the trailer.
+    output = joinBytes(gifBlocks(bytes).filter((block) => block.kind !== 'extension' || isRenderingGifExtension(block) || !(block.label === 0xfe
+      ? packetHasAiLabel(block.payload!, 'text')
+      : packetHasAiLabel(block.packet, block.app === 'XMP DataXMP' ? 'xmp' : 'opaque'))).map((block) => block.packet));
   } else return blob;
   return new Blob([output as Uint8Array<ArrayBuffer>], { type: format });
+}
+const joinBytes = (parts: Uint8Array[]) => { const out = new Uint8Array(parts.reduce((size, part) => size + part.length, 0)); let offset = 0; for (const part of parts) { out.set(part, offset); offset += part.length; } return out; };
+
+/**
+ * Why a cleaned file (parsed again) is not clean enough for `level`, or null when it is.
+ * Shared by the image queue and ZIP cleaning, so both accept exactly the same results.
+ */
+export function cleaningProblem(scan: Pick<MetaFile, 'aiProvenance' | 'privacyReport'>, level: AiCleanLevel): string | null {
+  const remaining = scan.aiProvenance.signals;
+  if (remaining.length) return `${remaining.length} AI marker(s) could not be removed safely (${remaining.slice(0, 2).map((signal) => signal.label).join(', ')})`;
+  const leaks = [level !== 'ai' && scan.privacyReport.hasGps && 'location', level === 'private' && scan.privacyReport.hasDeviceSerial && 'device identifiers'].filter(Boolean);
+  return leaks.length ? `Some ${leaks.join(' and ')} could not be removed safely` : null;
 }
 
 /** Creator and copyright to keep, unless they themselves name an AI tool. */
@@ -118,14 +135,17 @@ function attributionOf(raw: RawMetadata): Record<string, string> {
  *   Everything else (camera data, location, copyright, SEO) stays, and the compressed image is not re-encoded.
  * - private: the above, plus location, serial numbers, owner, host, software, document IDs, MakerNotes and thumbnails.
  * - all: every metadata block, keeping the colour profile and orientation, and optionally the creator and copyright.
- * Formats that cannot be edited in place are converted to PNG (attribution is kept for the first two levels).
+ * GIF is cleaned block by block without touching frames. Other formats that cannot be edited in place (HEIC, AVIF, TIFF)
+ * are converted to PNG (attribution is kept for the first two levels).
  */
 export async function removeAiMetadataFromBlob(blob: Blob, raw: RawMetadata, options: AiCleanOptions): Promise<Blob> {
   const format = imageFormat(new Uint8Array(await blob.slice(0, 64).arrayBuffer()));
+  if (format === 'image/gif' && options.level === 'ai') return stripProvenancePackets(blob, 'ai');
   if (options.level === 'all' || !EDITABLE.includes(format)) {
     const stripped = await stripAllMetadataFromBlob(blob);
     const attribution = options.level !== 'all' || options.keepAttribution ? attributionOf(raw) : {};
-    if (!Object.keys(attribution).length) return stripped;
+    // GIF has no EXIF block to hold attribution.
+    if (!Object.keys(attribution).length || !EDITABLE.includes(stripped.type)) return stripped;
     return writeMetadataToBlob(stripped, { exif: attribution }, Object.entries(attribution).map(([key, value]) => ({ section: 'exif', key, value })));
   }
   let output = blob;
